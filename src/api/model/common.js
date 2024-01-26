@@ -3,28 +3,28 @@ import http from "@/utils/request"
 
 export default {
 	upload: {
-		url: `upload`,
+		url: `file/upload`,
 		name: "文件上传",
 		post: async function(data, config={}){
 			return await http.post(this.url, data, config);
 		}
 	},
 	uploadFile: {
-		url: `uploadFile`,
+		url: `file/uploadFile`,
 		name: "附件上传",
 		post: async function(data, config={}){
 			return await http.post(this.url, data, config);
 		}
 	},
 	exportFile: {
-		url: `fileExport`,
+		url: `file/fileExport`,
 		name: "导出附件",
 		get: async function(data, config={}){
 			return await http.get(this.url, data, config);
 		}
 	},
 	importFile: {
-		url: `fileImport`,
+		url: `file/fileImport`,
 		name: "导入附件",
 		post: async function(data, config={}){
 			return await http.post(this.url, data, config);
