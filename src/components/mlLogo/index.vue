@@ -20,7 +20,8 @@ const formatImg = () => {
     if (!url || url.indexOf("/src/assets/imgs") != -1) {
         return false;
     } else {
-        return import.meta.env.VITE_APP_BASE_API + url;
+        return url;
+        // return import.meta.env.VITE_APP_BASE_API + url;
     }
 };
 </script>
