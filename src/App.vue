@@ -74,7 +74,7 @@ const initApi = async () => {
             isShowBody.value = false;
             setUserInfo(res.data.data);
             // 轮循获取新消息
-            roundRobin(5000);
+            // roundRobin(5000);
             // 获取新消息
             getNewMsgNum();
             // 获取实体列表

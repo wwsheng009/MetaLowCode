@@ -45,7 +45,7 @@ export default ({
 		'/api': {
 			target: env.VITE_API_SERVER,
 			//ws: true,
-			ws: false
+			ws: false,
 			// rewrite: (path) => path.replace(/^\/api/, '')
 		}
 	}
