@@ -124,6 +124,11 @@ export default {
                 userData.loginName = this.form.user;
                 setUserInfo(userData);
                 this.$TOOL.cookie.remove("userInfo");
+                this.$TOOL.cookie.set(
+                    "TOKEN", userData.token, {
+                    expires: userData.expires_at,
+                });
+
                 // 勾选了记住密码
                 if (this.form.autologin) {
                     let userInfo = this.$TOOL.data.get('USER_INFO');

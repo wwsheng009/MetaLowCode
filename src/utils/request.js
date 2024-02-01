@@ -81,7 +81,7 @@ axios.interceptors.response.use(
 	error => {
 		if (
 			error.response &&
-			error.response.status == 500 &&
+			error.response.status !== 200 &&
 			error.response.data.code &&
 			error.response.data.message
 		) {
