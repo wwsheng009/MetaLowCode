@@ -89,12 +89,15 @@ axios.interceptors.response.use(
 				code: error.response.data.code,
 				message: error.response.data.message,
 				error: error.response.data.message,
-				data: null
+				data: null,
+			};
+			error.response.data = payload;
+			if (payload.code === 403) {
+				router.replace({ path: "/web/login" });
+				return Promise.resolve(error.response);
 			}
-			// error.response.data = payload;
-			// error.response.status = 200;
-			ElMessage.error(payload.error)
-			return Promise.reject(error.response)
+			ElMessage.error(payload.error);
+			return Promise.reject(error.response);
 		}
 		if (error.response) {
 			if (error.response.status == 404) {
