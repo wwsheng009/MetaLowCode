@@ -93,7 +93,19 @@ axios.interceptors.response.use(
 			};
 			error.response.data = payload;
 			if (payload.code === 403) {
-				router.replace({ path: "/web/login" });
+				ElMessageBox.confirm('当前用户已被登出或无权限访问当前资源，请尝试重新登录后再操作。', '无权限访问', {
+					type: 'error',
+					closeOnClickModal: false,
+					center: true,
+					confirmButtonText: '重新登录',
+					beforeClose: (action, instance, done) => {
+						MessageBox_401_show = false
+						done()
+					}
+				}).then(() => {
+					router.replace({ path: '/web/login' });
+				}).catch(() => { })
+				
 				return Promise.resolve(error.response);
 			}
 			ElMessage.error(payload.error);
