@@ -45,7 +45,7 @@ let MessageBox_401_show = false
 
 // HTTP response 拦截器
 axios.interceptors.response.use(
-	response => {
+    (response) => {
 		if (
 			typeof response.data !== 'object' ||
 			!(
@@ -66,6 +66,88 @@ axios.interceptors.response.use(
 
 			response.data = payload
 		}
+        if (response.data?.code == 200) {
+            return response
+        }
+        if (response.data?.code === 403) {
+            router.replace({ path: '/web/login' });
+            return response
+        } else {
+            ElMessage.error(response.data.error)
+            return {}
+        }
+	},
+    (error) => {
+        if (error.response) {
+			if (
+				error.response.status !== 200 &&
+				error.response.data.code &&
+				error.response.data.message
+			) {
+				let payload = {
+					code: error.response.data.code,
+					message: error.response.data.message,
+					error: error.response.data.message,
+					data: null,
+				};
+				error.response.data = payload;
+				if (payload.code === 403) {
+					ElMessageBox.confirm('当前用户已被登出或无权限访问当前资源，请尝试重新登录后再操作。', '无权限访问', {
+						type: 'error',
+						closeOnClickModal: false,
+						center: true,
+						confirmButtonText: '重新登录',
+						beforeClose: (action, instance, done) => {
+							MessageBox_401_show = false
+							done()
+						}
+					}).then(() => {
+						router.replace({ path: '/web/login' });
+					}).catch(() => { })
+					
+					return Promise.resolve(error.response);
+				}
+				ElMessage.error(payload.error);
+				return Promise.reject(error.response);
+			}
+            if (error.response.status == 404) {
+                ElNotification.error({
+                    title: '请求错误',
+                    message: "Status:404，正在请求不存在的服务器记录！"
+                });
+            } else if (error.response.status == 500) {
+                ElNotification.error({
+                    title: '请求错误',
+                    message: error.response.data.message || "Status:500，服务器发生错误！"
+                });
+            } else if (error.response.status == 401) {
+                if (!MessageBox_401_show) {
+                    MessageBox_401_show = true
+                    ElMessageBox.confirm('当前用户已被登出或无权限访问当前资源，请尝试重新登录后再操作。', '无权限访问', {
+                        type: 'error',
+                        closeOnClickModal: false,
+                        center: true,
+                        confirmButtonText: '重新登录',
+                        beforeClose: (action, instance, done) => {
+                            MessageBox_401_show = false
+                            done()
+                        }
+                    }).then(() => {
+                        router.replace({ path: '/web/login' });
+                    }).catch(() => { })
+                }
+            } else {
+                ElNotification.error({
+                    title: '请求错误',
+                    message: error.message || `Status:${error.response.status}，未知错误！`
+                });
+            }
+        } else {
+            ElNotification.error({
+                title: '请求错误',
+                message: "请求服务器无响应！"
+            });
+        }
 
 		if (response.data.code == 200) {
 			return response
@@ -77,82 +159,82 @@ axios.interceptors.response.use(
 			ElMessage.error(response.data.error)
 			return {}
 		}
-	},
-	error => {
-		if (
-			error.response &&
-			error.response.status !== 200 &&
-			error.response.data.code &&
-			error.response.data.message
-		) {
-			let payload = {
-				code: error.response.data.code,
-				message: error.response.data.message,
-				error: error.response.data.message,
-				data: null,
-			};
-			error.response.data = payload;
-			if (payload.code === 403) {
-				ElMessageBox.confirm('当前用户已被登出或无权限访问当前资源，请尝试重新登录后再操作。', '无权限访问', {
-					type: 'error',
-					closeOnClickModal: false,
-					center: true,
-					confirmButtonText: '重新登录',
-					beforeClose: (action, instance, done) => {
-						MessageBox_401_show = false
-						done()
-					}
-				}).then(() => {
-					router.replace({ path: '/web/login' });
-				}).catch(() => { })
-				
-				return Promise.resolve(error.response);
-			}
-			ElMessage.error(payload.error);
-			return Promise.reject(error.response);
-		}
-		if (error.response) {
-			if (error.response.status == 404) {
-				ElNotification.error({
-					title: '请求错误',
-					message: "Status:404，正在请求不存在的服务器记录！"
-				});
-			} else if (error.response.status == 500) {
-				ElNotification.error({
-					title: '请求错误',
-					message: error.response.data.message || "Status:500，服务器发生错误！"
-				});
-			} else if (error.response.status == 401) {
-				if (!MessageBox_401_show) {
-					MessageBox_401_show = true
-					ElMessageBox.confirm('当前用户已被登出或无权限访问当前资源，请尝试重新登录后再操作。', '无权限访问', {
-							type: 'error',
-							closeOnClickModal: false,
-							center: true,
-							confirmButtonText: '重新登录',
-							beforeClose: (action, instance, done) => {
-								MessageBox_401_show = false
-								done()
-							}
-						}).then(() => {
-							router.replace({ path: '/web/login' });
-						}).catch(() => { })
-				}
-			} else {
-				ElNotification.error({
-					title: '请求错误',
-					message: error.message || `Status:${error.response.status}，未知错误！`
-				});
-			}
-		} else {
-			ElNotification.error({
-				title: '请求错误',
-				message: "请求服务器无响应！"
-			});
-		}
-
-		return Promise.reject(error.response);
 	}
+	// error => {
+	// 	if (
+	// 		error.response &&
+	// 		error.response.status !== 200 &&
+	// 		error.response.data.code &&
+	// 		error.response.data.message
+	// 	) {
+	// 		let payload = {
+	// 			code: error.response.data.code,
+	// 			message: error.response.data.message,
+	// 			error: error.response.data.message,
+	// 			data: null,
+	// 		};
+	// 		error.response.data = payload;
+	// 		if (payload.code === 403) {
+	// 			ElMessageBox.confirm('当前用户已被登出或无权限访问当前资源，请尝试重新登录后再操作。', '无权限访问', {
+	// 				type: 'error',
+	// 				closeOnClickModal: false,
+	// 				center: true,
+	// 				confirmButtonText: '重新登录',
+	// 				beforeClose: (action, instance, done) => {
+	// 					MessageBox_401_show = false
+	// 					done()
+	// 				}
+	// 			}).then(() => {
+	// 				router.replace({ path: '/web/login' });
+	// 			}).catch(() => { })
+				
+	// 			return Promise.resolve(error.response);
+	// 		}
+	// 		ElMessage.error(payload.error);
+	// 		return Promise.reject(error.response);
+	// 	}
+	// 	if (error.response) {
+	// 		if (error.response.status == 404) {
+	// 			ElNotification.error({
+	// 				title: '请求错误',
+	// 				message: "Status:404，正在请求不存在的服务器记录！"
+	// 			});
+	// 		} else if (error.response.status == 500) {
+	// 			ElNotification.error({
+	// 				title: '请求错误',
+	// 				message: error.response.data.message || "Status:500，服务器发生错误！"
+	// 			});
+	// 		} else if (error.response.status == 401) {
+	// 			if (!MessageBox_401_show) {
+	// 				MessageBox_401_show = true
+	// 				ElMessageBox.confirm('当前用户已被登出或无权限访问当前资源，请尝试重新登录后再操作。', '无权限访问', {
+	// 						type: 'error',
+	// 						closeOnClickModal: false,
+	// 						center: true,
+	// 						confirmButtonText: '重新登录',
+	// 						beforeClose: (action, instance, done) => {
+	// 							MessageBox_401_show = false
+	// 							done()
+	// 						}
+	// 					}).then(() => {
+	// 						router.replace({ path: '/web/login' });
+	// 					}).catch(() => { })
+	// 			}
+	// 		} else {
+	// 			ElNotification.error({
+	// 				title: '请求错误',
+	// 				message: error.message || `Status:${error.response.status}，未知错误！`
+	// 			});
+	// 		}
+	// 	} else {
+	// 		ElNotification.error({
+	// 			title: '请求错误',
+	// 			message: "请求服务器无响应！"
+	// 		});
+	// 	}
+
+	// 	return Promise.reject(error.response);
+	// }
 );
 
 var http = {

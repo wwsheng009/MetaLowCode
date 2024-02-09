@@ -26,9 +26,9 @@ export default ({
 		},
     };
 
-	let optimizeDeps = {
-		include: [`@/../lib/visual-design/designer.umd.js`]
-	};
+    let optimizeDeps = {
+        include: [`@/../lib/visual-design/designer.umd.js`,`@/../lib/flow-designer/meta-flow-designer.umd.cjs`]
+    };
 
 	let alias = {
 		'.git': path.resolve(__dirname, './.git'),
