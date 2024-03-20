@@ -1,6 +1,14 @@
 <template>
-    <ml-dialog :title="row.dialogTitle" v-if="isShow" v-model="isShow" width="55%" draggable>
-        <div class="main" v-loading="loading">
+    <ml-dialog
+        :title="row.dialogTitle"
+        v-if="isShow"
+        v-model="isShow"
+        width="55%"
+        draggable
+        :showFullSceen="styleConf?.actionConf.showFullScreen"
+        :autoFullScreen="styleConf?.actionConf.autoFullScreen"
+    >
+        <div class="main fullsceen-man" v-loading="loading">
             <div class="info-box" v-if="row.detailId && row.approvalStatus.value == 3">记录已完成审批，禁止编辑</div>
             <div class="info-box" v-if="row.detailId && row.approvalStatus.value == 1">记录正在审批中，禁止编辑</div>
             <v-form-render
@@ -24,12 +32,13 @@
 </template>
 
 <script setup>
-import { reactive, ref, inject, nextTick } from "vue";
-import { getFormLayout,getFieldListOfEntity } from "@/api/system-manager";
+import { reactive, ref, inject, nextTick, onMounted, watch } from "vue";
+import { getFormLayout, getFieldListOfEntity } from "@/api/system-manager";
 import { queryById, saveRecord } from "@/api/crud";
 import { saveTeam } from "@/api/team";
 import { saveUser, checkRight } from "@/api/user";
 import useCommonStore from "@/store/modules/common";
+import { ElMessage } from "element-plus";
 const { queryEntityNameById, queryEntityNameByLabel } = useCommonStore();
 const emits = defineEmits(["onConfirm"]);
 const props = defineProps({
@@ -37,8 +46,39 @@ const props = defineProps({
     isUser: { type: Boolean, default: false },
     disableWidgets: { type: Array, default: () => [] },
     nameFieldName: { type: String, default: "" },
+    layoutConfig: { type: Object, default: () => {} },
 });
-const $ElMessage = inject("$ElMessage");
+
+// 整体配置信息
+let myLayoutConfig = ref({});
+// 列表样式配置
+let styleConf = ref({
+    // 新建编辑弹框属性
+    actionConf: {
+        // 显示全屏按钮
+        showFullScreen: false,
+        // 弹框自动全屏
+        autoFullScreen: false,
+    },
+});
+watch(
+    () => props.layoutConfig,
+    () => {
+        loadMyLayoutConfig();
+    },
+    {
+        deep: true,
+    }
+);
+
+// 加载配置信息
+const loadMyLayoutConfig = () => {
+    myLayoutConfig.value = props.layoutConfig || {};
+    let { STYLE } = myLayoutConfig.value;
+    if (STYLE && STYLE.config) {
+        styleConf.value = JSON.parse(STYLE.config);
+    }
+};
 
 let row = reactive({
     approvalStatus: {},
@@ -72,8 +112,9 @@ const openDialog = async (v) => {
     if (res.data && res.data.code == 200 && res.data.data) {
         isShow.value = true;
         initFormLayout();
+        loadMyLayoutConfig();
     } else {
-        $ElMessage.error(
+        ElMessage.error(
             "当前用户没有" + (v.detailId ? "编辑" : "新建") + "权限"
         );
     }
@@ -201,30 +242,51 @@ const confirm = async () => {
         isShow.value = false;
         return;
     }
-    let formData = await vFormRef.value.getFormData();
-    if (row.fieldName) {
-        formData[row.fieldName] = {
-            id: row.fieldNameVale,
-            name: row.fieldNameLabel,
-        };
-    }
-    if (formData) {
-        loading.value = true;
-        let saveRes;
-        if (props.isTeam) {
-            saveRes = await saveTeam(row.entityName, row.detailId, formData);
-        } else if (props.isUser) {
-            saveRes = await saveUser(row.entityName, row.detailId, formData);
-        } else {
-            saveRes = await saveRecord(row.entityName, row.detailId, formData);
-        }
-        if (saveRes && (saveRes.data?.code == 200 || saveRes.code == 200)) {
-            $ElMessage.success("保存成功");
-            emits("onConfirm");
-            isShow.value = false;
-        }
-        loading.value = false;
-    }
+    vFormRef.value
+        .getFormData()
+        .then(async (formData) => {
+            if (row.fieldName) {
+                formData[row.fieldName] = {
+                    id: row.fieldNameVale,
+                    name: row.fieldNameLabel,
+                };
+            }
+            if (formData) {
+                loading.value = true;
+                let saveRes;
+                if (props.isTeam) {
+                    saveRes = await saveTeam(
+                        row.entityName,
+                        row.detailId,
+                        formData
+                    );
+                } else if (props.isUser) {
+                    saveRes = await saveUser(
+                        row.entityName,
+                        row.detailId,
+                        formData
+                    );
+                } else {
+                    saveRes = await saveRecord(
+                        row.entityName,
+                        row.detailId,
+                        formData
+                    );
+                }
+                if (
+                    saveRes &&
+                    (saveRes.data?.code == 200 || saveRes.code == 200)
+                ) {
+                    ElMessage.success("保存成功");
+                    emits("onConfirm");
+                    isShow.value = false;
+                }
+                loading.value = false;
+            }
+        })
+        .catch(() => {
+            ElMessage.error("表单校验失败，请修改后重新提交");
+        });
 };
 defineExpose({
     openDialog,

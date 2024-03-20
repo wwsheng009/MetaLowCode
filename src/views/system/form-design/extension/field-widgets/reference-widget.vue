@@ -27,7 +27,14 @@
 				</template>
 			</el-input>
 			<template v-if="isReadMode">
-				<span class="readonly-mode-field">{{ contentForReadMode }}</span>
+				<span class="readonly-mode-field" @click.stop="openRefDialog">{{ contentForReadMode }}
+					<el-button v-if="fieldModel && fieldModel.id" type="primary" circle size="small"
+							   class="small-circle-button" title="打开详情弹窗">
+						<el-icon >
+							<TopRight />
+						</el-icon>
+					</el-button>
+				</span>
 			</template>
 		</form-item-wrapper>
 		<el-dialog title="请选择" v-if="showReferenceDialogFlag"
@@ -36,14 +43,16 @@
 				   :width="dialogWidth" draggable
 				   :close-on-click-modal="false" :close-on-press-escape="false" :append-to-body="true">
 			<ReferenceSearchTable ref="referST" :entity="entity" :refField="curRefField" :extraFilter="searchFilter"
-								  @recordSelected="setReferRecord"></ReferenceSearchTable>
+								  @recordSelected="setReferRecord" :gDsv="gDsv"></ReferenceSearchTable>
 		</el-dialog>
 	</div>
+	<Detail ref="detailRef" />
 </template>
 
 <script>
 import VisualDesign from '@/../lib/visual-design/designer.umd.js'
 import ReferenceSearchTable from '@/components/mlReferenceSearch/reference-search-table.vue'
+import Detail from '@/views/customize-menu/detail.vue'
 
 const {FormItemWrapper, emitter, i18n, fieldMixin} = VisualDesign.VFormSDK
 
@@ -79,7 +88,8 @@ export default {
 	},
 	components: {
 		FormItemWrapper,
-		ReferenceSearchTable
+		ReferenceSearchTable,
+		Detail,
 	},
 	data() {
 		return {
@@ -92,6 +102,7 @@ export default {
 			entity: null,
 			curRefField: null,
 			searchFilter: '',
+            gDsv:{},
 		}
 	},
 	computed: {
@@ -127,8 +138,8 @@ export default {
 	},
 
 	created() {
-		const gDsv = this.getGlobalDsv()
-		this.entity = gDsv['formEntity'] || this.$route.query.entity || this.$route.meta.entityName
+		this.gDsv = this.getGlobalDsv();
+		this.entity = this.gDsv['formEntity'] || this.$route.query.entity || this.$route.meta.entityName
 		if (!!this.subFormItemFlag) {  //设置为明细实体名称！！
 			this.entity = this.subFormName
 		}
@@ -188,6 +199,12 @@ export default {
 			}
 		},
 
+		openRefDialog() {
+			let refId = this.fieldModel ? this.fieldModel.id : null
+			if (refId && this.$refs.detailRef) {
+				this.$refs.detailRef.openDialog(refId)
+			}
+		},
 	}
 }
 </script>
@@ -199,6 +216,15 @@ export default {
 <style lang="scss">
 .small-padding-dialog .el-dialog__body {
 	padding: 0 10px 10px 10px !important;
+}
+
+.readonly-mode-field {
+	cursor: pointer;
+
+	.small-circle-button {
+		height: 16px !important;
+		width: 16px !important;
+	}
 }
 
 </style>

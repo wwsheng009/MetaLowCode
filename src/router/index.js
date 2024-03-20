@@ -216,7 +216,11 @@ const routerCheckRole = (routeList) => {
         const tmp = { ...el }
         if (tmp.meta.role) {
             if (tool.checkRole(tmp.meta.role)) {
+                if (tmp.children) {
+                    tmp.children = routerCheckRole(tmp.children)
+                }
                 res.push(tmp)
+
             }
         } else {
             if (tmp.children) {
@@ -225,9 +229,8 @@ const routerCheckRole = (routeList) => {
             if (!tmp.children || tmp.children.length > 0) {
                 res.push(tmp)
             }
-
-
         }
+
     })
     return res
 }

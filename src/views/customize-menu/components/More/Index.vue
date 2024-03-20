@@ -123,6 +123,21 @@
                     @click="openDefaultFilterDialog"
                     v-if="$TOOL.checkRole('r6008')"
                 >默认查询设置</div>
+                <div
+                    class="pl-20 item"
+                    @click="treeGroupFilterIsShow = true"
+                    v-if="$TOOL.checkRole('r6008')"
+                >树状分组筛选</div>
+                <div
+                    class="pl-20 item"
+                    @click="editColumn('BATCH_UPDATE')"
+                    v-if="$TOOL.checkRole('r6008')"
+                >批量编辑设置</div>
+                <div
+                    class="pl-20 item"
+                    @click="setListStyleDialogIsShow = true"
+                    v-if="$TOOL.checkRole('r6008')"
+                >列表样式设计</div>
             </template>
         </div>
         <template #reference>
@@ -154,15 +169,49 @@
     <ReportForms ref="reportFormsRefs" />
     <!-- 默认查询设置 -->
     <DefaultFilterDialog ref="defaultFilterRefs" @defaultFilterChange="defaultFilterChange" />
+    <!-- 树状分组筛选 -->
+    <TreeGroupFilter
+        :entityCode="entityCode"
+        :layoutConfig="myLayoutConf"
+        v-model="treeGroupFilterIsShow"
+        @confirm="treeGroupFilterConfirm"
+    />
+    <!-- <NewTreeGroupFilter
+        :entityCode="entityCode"
+        :layoutConfig="myLayoutConf"
+        v-model="treeGroupFilterIsShow"
+        @confirm="treeGroupFilterConfirm"
+    /> -->
+    <!-- 列表样式设计 -->
+    <SetListStyleDialog
+        v-model="setListStyleDialogIsShow"
+        :entityCode="entityCode"
+        :layoutConfig="myLayoutConf"
+        @confirm="allocationSuccess"
+    />
 </template>
 
 <script setup>
-import { ref, inject, reactive } from "vue";
-import SetColumn from "./SetColumn.vue";
-import DataExport from "./DataExport.vue";
-import Allocation from "./Allocation.vue";
-import ReportForms from "./ReportForms.vue";
+import { ref, inject, reactive, watch, onMounted } from "vue";
+/**
+ * 组件
+ */
+// 设置列
+import SetColumn from "../SetColumn.vue";
+// 数据导出
+import DataExport from "../DataExport.vue";
+// 分配、共享、取消共享
+import Allocation from "../Allocation.vue";
+// 选择报表
+import ReportForms from "../ReportForms.vue";
+// 默认查询设置
 import DefaultFilterDialog from "./DefaultFilterDialog.vue";
+// 树状分组筛选设置
+import TreeGroupFilter from "./TreeGroupFilter.vue";
+import NewTreeGroupFilter from "./NewTreeGroupFilter.vue";
+// 列表样式设计
+import SetListStyleDialog from "./SetListStyleDialog.vue";
+
 import { checkRight } from "@/api/user";
 import { useRouter } from "vue-router";
 import useCommonStore from "@/store/modules/common";
@@ -172,6 +221,7 @@ const emits = defineEmits([
     "changeColumnShow",
     "editColumnConfirm",
     "defaultFilterChange",
+    "treeGroupFilterConfirm",
 ]);
 const props = defineProps({
     defaultColumnShow: { type: String, default: "" },
@@ -188,6 +238,24 @@ const props = defineProps({
     // 默认查询设置
     defaultFilterSetting: { type: Object, default: () => {} },
 });
+
+// layout配置
+let myLayoutConf = ref({});
+
+watch(
+    () => props.layoutConfig,
+    () => {
+        myLayoutConf.value = props.layoutConfig;
+    },
+    {
+        deep: true,
+    }
+);
+
+onMounted(() => {
+    myLayoutConf.value = props.layoutConfig;
+});
+
 const $API = inject("$API");
 const $TOOL = inject("$TOOL");
 const $ElMessage = inject("$ElMessage");
@@ -290,14 +358,16 @@ const dataUploadFn = () => {
  **************************************************************  列显示 beg
  */
 // 编辑列弹框是否显示
-let editColumnDialog = reactive({
+let editColumnDialog = ref({
     isShow: false,
 });
 const editColumn = (type) => {
-    editColumnDialog.isShow = true;
-    editColumnDialog.chosenListType = type;
-    editColumnDialog = Object.assign(
-        editColumnDialog,
+    editColumnDialog.value = {};
+    editColumnDialog.value.isShow = true;
+    editColumnDialog.value.chosenListType = type;
+    editColumnDialog.value.entityCode = props.entityCode;
+    editColumnDialog.value = Object.assign(
+        editColumnDialog.value,
         props.layoutConfig[type]
     );
 };
@@ -332,13 +402,33 @@ const defaultFilterChange = () => {
  * 打印
  */
 const openPrinter = () => {
-    let newUrl = router.resolve("/web/Printer?entityId=" + props.detailId + "&nameFieldName=" + props.nameFieldName);
+    let newUrl = router.resolve(
+        "/web/Printer?entityId=" +
+            props.detailId +
+            "&nameFieldName=" +
+            props.nameFieldName
+    );
     window.open(newUrl.href);
     // router.push({
     //     path: "/web/Printer?entityId=" + props.detailId,
     //     target: "_blank",
     // });
 };
+
+/**
+ * 树状分组筛选
+ */
+let treeGroupFilterIsShow = ref(false);
+
+// 确认选择分组
+const treeGroupFilterConfirm = () => {
+    emits("treeGroupFilterConfirm");
+};
+
+/**
+ * 列表样式设计
+ */
+let setListStyleDialogIsShow = ref(false);
 
 defineExpose({
     editColumn,
@@ -395,6 +485,17 @@ defineExpose({
             background: #fff;
             cursor: default;
         }
+    }
+}
+
+.list-settings-item {
+    height: 32px;
+    line-height: 32px;
+    margin-bottom: 5px;
+    font-size: 14px;
+    cursor: pointer;
+    &:hover {
+        color: var(--el-color-primary);
     }
 }
 </style>

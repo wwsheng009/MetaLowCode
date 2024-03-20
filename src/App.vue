@@ -7,8 +7,7 @@
     >
         <router-view v-if="isShowBody"></router-view>
         <div class="app-loading" v-else>
-            <div class="app-loading__logo">
-            </div>
+            <div class="app-loading__logo"></div>
             <div class="app-loading__loader"></div>
             <div class="app-loading__title">Loading...</div>
         </div>
@@ -64,11 +63,15 @@ onBeforeMount(() => {
     colorPrimary(app_color);
     // 获取公开系统配置
     queryPublicSetting();
+    if(location.pathname == '/web/inReport'){
+        isShowBody.value = true;
+        return
+    }
     initApi();
 });
 
 const initApi = async () => {
-    let res = await getLoginUser();
+    let res = await getLoginUser(getQueryString("loginToken"));
     if (res && res.data) {
         if (res.data.data) {
             isShowBody.value = false;
@@ -86,6 +89,15 @@ const initApi = async () => {
         }
     }
 };
+
+function getQueryString(name) {
+    var reg = new RegExp("(^|&)" + name + "=([^&]*)(&|$)", "i");
+    var r = window.location.search.substr(1).match(reg);
+    if (r != null) {
+        return unescape(r[2]);
+    }
+    return null;
+}
 
 // 获取公开系统配置
 const queryPublicSetting = async () => {

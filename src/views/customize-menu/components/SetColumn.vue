@@ -1,5 +1,9 @@
 <template>
-    <mlDialog title="设置列显示" v-model="isShow" width="650px">
+    <mlDialog
+        :title="editColumnDialog.chosenListType != 'BATCH_UPDATE' ? '设置列显示' : '批量编辑设置'"
+        v-model="isShow"
+        width="650px"
+    >
         <div v-loading="loading">
             <div class="clearfix">
                 <div class="sortable-box fl">
@@ -26,6 +30,7 @@
                                     <span
                                         class="icon-span add-icon mr-5"
                                         @click.stop="editColumn(parent,inx)"
+                                        v-if="editColumnDialog.chosenListType != 'BATCH_UPDATE'"
                                     >
                                         <el-icon size="15">
                                             <ElIconEditPen />
@@ -89,60 +94,106 @@
             width="450"
             top="25vh"
         >
-            <el-form label-width="120px">
-                <el-form-item label="别名">
-                    <el-input v-model="editColumnDialogData.columnAliasName" />
-                </el-form-item>
-                <el-form-item label="默认宽度">
-                    <el-input-number
-                        v-model="editColumnDialogData.columnWidth"
-                        :min="0"
-                        :max="500"
-                        controls-position="right"
-                        :step="10"
-                    />
-                    <span
-                        class="info-text ml-10"
-                    >{{ editColumnDialogData.columnWidth > 0 ? "宽度 " + editColumnDialogData.columnWidth : '默认' }}</span>
-                </el-form-item>
-                <el-form-item label="默认排序">
-                    <span
-                        class="sort-span"
-                        :class="{'is-active': editColumnDialogData.columnSort != ''}"
-                        @click="changeColumnSort"
-                    >
-                        {{ editColumnDialogData.columnSort == 'ASC' ? '升序' : '降序' }}
-                        <el-icon class="sort-icon">
-                            <ElIconTop v-if="editColumnDialogData.columnSort == 'ASC'" />
-                            <ElIconBottom v-else />
-                        </el-icon>
-                    </span>
-                </el-form-item>
-                <el-form-item label="数据统计">
-                    <el-checkbox v-model="editColumnDialogData.dataStatistics" />
-                </el-form-item>
-                <el-form-item
-                    label="统计类型"
-                    v-if="editColumnDialogData.dataStatistics"
-                    class="is-required"
-                >
-                    <el-select v-model="editColumnDialogData.statisticType" placeholder="选择统计类型">
-                        <el-option
-                            v-for="item in getUptadeMode()"
-                            :key="item.value"
-                            :label="item.label"
-                            :value="item.value"
+            <div class="pr-40">
+                <el-form label-width="100px">
+                    <el-form-item label="别名" class="mb-10">
+                        <el-input v-model="editColumnDialogData.columnAliasName" />
+                    </el-form-item>
+                    <el-form-item label="默认排序" class="mb-5">
+                        <span
+                            class="sort-span"
+                            :class="{'is-active': editColumnDialogData.columnSort != ''}"
+                            @click="changeColumnSort"
+                        >
+                            {{ editColumnDialogData.columnSort == 'ASC' ? '升序' : '降序' }}
+                            <el-icon class="sort-icon">
+                                <ElIconTop v-if="editColumnDialogData.columnSort == 'ASC'" />
+                                <ElIconBottom v-else />
+                            </el-icon>
+                        </span>
+                    </el-form-item>
+                    <el-form-item label="默认列宽" class="mb-10">
+                        <el-input-number
+                            v-model="editColumnDialogData.columnWidth"
+                            :min="0"
+                            :max="500"
+                            controls-position="right"
+                            :step="10"
                         />
-                    </el-select>
-                </el-form-item>
-                <el-form-item label="显示名称" v-if="editColumnDialogData.dataStatistics">
-                    <el-input v-model="editColumnDialogData.statisticName" />
-                </el-form-item>
-                <el-form-item>
-                    <el-button type="primary" @click="confirmColumnEdit">保存</el-button>
+                        <span
+                            class="info-text ml-10"
+                        >{{ editColumnDialogData.columnWidth > 0 ? "宽度 " + editColumnDialogData.columnWidth : '默认' }}</span>
+                    </el-form-item>
+                    <el-form-item label="字体大小" class="mb-10">
+                        <el-input-number
+                            v-model="editColumnDialogData.fontSize"
+                            :min="12"
+                            :max="24"
+                            controls-position="right"
+                            :step="1"
+                        />
+                        <span class="info-text ml-10">
+                            <span class="mr-5">表字体</span>
+                            <span :style="{'font-size':editColumnDialogData.fontSize + 'px'}">大小</span>
+                        </span>
+                    </el-form-item>
+                    <el-form-item label="字体粗细" class="mb-10">
+                        <el-select v-model="editColumnDialogData.fontWeight" style="width: 150px;">
+                            <el-option :label="100" :value="100" />
+                            <el-option :label="200" :value="200" />
+                            <el-option :label="300" :value="300" />
+                            <el-option label="400(默认)" :value="400" />
+                            <el-option :label="500" :value="500" />
+                            <el-option :label="600" :value="600" />
+                            <el-option label="700(加粗)" :value="700" />
+                        </el-select>
+                        <span class="info-text ml-10">
+                            <span class="mr-5">表字体</span>
+                            <span :style="{'font-weight':editColumnDialogData.fontWeight}">粗细</span>
+                        </span>
+                    </el-form-item>
+                    <el-form-item label="字体颜色" class="mb-5">
+                        <el-color-picker v-model="editColumnDialogData.fontColor" />
+                        <span class="info-text ml-10">
+                            <span class="mr-5">表字体</span>
+                            <span :style="{'color':editColumnDialogData.fontColor}">颜色</span>
+                        </span>
+                    </el-form-item>
+                    <el-form-item label="数据统计" class="mb-3">
+                        <el-checkbox v-model="editColumnDialogData.dataStatistics" />
+                    </el-form-item>
+                    <el-form-item
+                        label="统计类型"
+                        v-if="editColumnDialogData.dataStatistics"
+                        class="is-required mb-10"
+                    >
+                        <el-select
+                            v-model="editColumnDialogData.statisticType"
+                            placeholder="选择统计类型"
+                        >
+                            <el-option
+                                v-for="item in getUptadeMode()"
+                                :key="item.value"
+                                :label="item.label"
+                                :value="item.value"
+                            />
+                        </el-select>
+                    </el-form-item>
+                    <el-form-item
+                        label="显示名称"
+                        class="mb-10"
+                        v-if="editColumnDialogData.dataStatistics"
+                    >
+                        <el-input v-model="editColumnDialogData.statisticName" />
+                    </el-form-item>
+                </el-form>
+            </div>
+            <template #footer>
+                <div class="footer-div">
                     <el-button @click="editColumnDialogIsShow = false">取消</el-button>
-                </el-form-item>
-            </el-form>
+                    <el-button type="primary" @click="confirmColumnEdit">保存</el-button>
+                </div>
+            </template>
         </mlDialog>
     </mlDialog>
 </template>
@@ -210,6 +261,12 @@ let editColumnDialogData = reactive({
     columnWidth: 0,
     columnSort: "",
     columnAliasName: "",
+    // 字体大小
+    fontSize: 13,
+    // 字体颜色
+    fontColor: "#606266",
+    // 字体粗细
+    fontWeight: 400,
     // 字段类型
     fieldType: "",
     // 数据统计
@@ -328,47 +385,64 @@ const delColumn = (column, inx) => {
 
 // 获取所有列数据
 const getAllColumn = async () => {
+    let { config, entityCode, chosenListType } = props.editColumnDialog;
     loading.value = true;
     let res = await queryEntityFields(
-        props.editColumnDialog.entityCode,
-        true,
+        entityCode,
+        chosenListType != "BATCH_UPDATE",
         false,
         true
     );
     if (res) {
         showColumn.value = [];
         let hasFieldName = [];
-        if (props.editColumnDialog.config) {
-            JSON.parse(props.editColumnDialog.config).forEach((el) => {
+        if (config) {
+            JSON.parse(config).forEach((el) => {
                 showColumn.value.push(el);
                 hasFieldName.push(el.fieldName);
             });
         }
-        sourceColumn.value = res.data.filter(
-            (el) => !hasFieldName.includes(el.fieldName)
-        );
+        // 如果是批量编辑需要过滤掉图片、文件类型字段 且是能修改的字段
+        if (chosenListType == "BATCH_UPDATE") {
+            sourceColumn.value = res.data.filter(
+                (el) =>
+                    !hasFieldName.includes(el.fieldName) &&
+                    el.fieldType != "Picture" &&
+                    el.fieldType != "File" &&
+                    el.isUpdatable
+            );
+        } else {
+            sourceColumn.value = res.data.filter(
+                (el) => !hasFieldName.includes(el.fieldName)
+            );
+        }
     }
     loading.value = false;
-    // console.log(props.entityName);
 };
 
 const onSave = async () => {
-    // console.log(props.editColumnDialog, "editColumnDialog");
-    // console.log(showColumn.value);
-    if (showColumn.value.length < 1) {
+    let { entityCode, applyType, shareTo, layoutConfigId, chosenListType } =
+        props.editColumnDialog;
+
+    // 非批量编辑才需要判断
+    if (chosenListType != "BATCH_UPDATE" && showColumn.value.length < 1) {
         $ElMessage.warning("请至少选择 1 个列显示");
         return;
     }
-    let { entityCode, applyType, shareTo, layoutConfigId } =
-        props.editColumnDialog;
+
     let param = {
         config: JSON.stringify([...showColumn.value]),
         entityCode,
         applyType,
         shareTo,
     };
+    let apiType = chosenListType != "BATCH_UPDATE" ? "LIST" : "BATCH_UPDATE";
     loading.value = true;
-    let res = await $API.layoutConfig.saveConfig(layoutConfigId, "LIST", param);
+    let res = await $API.layoutConfig.saveConfig(
+        layoutConfigId,
+        apiType,
+        param
+    );
     if (res) {
         $ElMessage.success("保存成功！");
         isShow.value = false;

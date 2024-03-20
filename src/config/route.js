@@ -305,6 +305,28 @@ const routes = [
 					},
 				]
 			},
+            // 外部集成
+            {
+				path: '',
+				name: 'ExternalIntegration',
+				meta: {title: '外部集成', icon: 'el-icon-soldOut'},
+				children: [
+					// 外部表单列表
+					{
+						path: '/web/external-list',
+						name: 'ExternalList',
+                        meta: { title: '外部表单', icon: 'el-icon-list', role: 'r57-1' },
+						component: 'system/external-integration/external-list',
+					},
+                    // 外部表单列表
+					{
+						path: '/web/meta-api',
+						name: 'MetaApi',
+                        meta: { title: 'API密钥', icon: 'el-icon-key', role: 'r51-1' },
+						component: 'system/external-integration/meta-api',
+					},
+				]
+			},
 
             // 数据导入
             {

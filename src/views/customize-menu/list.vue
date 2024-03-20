@@ -44,17 +44,23 @@
                     <el-tag type="success" closable @close="clearDataFilter">当前数据已过滤</el-tag>
                 </div>
                 <div class="fr table-setting">
-                    <!-- <el-button class="mr-15">按钮占用</el-button> -->
                     <el-button
                         icon="Notification"
-                        :disabled="multipleSelection.length > 1"
+                        :disabled="multipleSelection.length != 1"
                         @click="openDetailDialog(multipleSelection[0])"
                     >打开</el-button>
                     <el-button
                         icon="Edit"
-                        :disabled="multipleSelection.length > 1"
+                        :disabled="multipleSelection.length != 1"
                         @click="onEditRow(multipleSelection[0])"
                     >编辑</el-button>
+                    <el-button
+                        icon="Edit"
+                        v-if="batchUpdateConf.length > 0"
+                        :disabled="multipleSelection.length < 1"
+                        @click="openBatchUpdateDialog"
+                    >批量编辑</el-button>
+
                     <el-button type="primary" icon="Plus" @click="onAdd">新建</el-button>
                     <More
                         ref="MoreRefs"
@@ -68,6 +74,7 @@
                         :idFieldName="idFieldName"
                         :entityCode="entityCode"
                         @defaultFilterChange="getLayoutList"
+                        @treeGroupFilterConfirm="getLayoutList"
                         :defaultFilterSetting="defaultFilterSetting"
                     />
                 </div>
@@ -105,6 +112,39 @@
                 </div>
             </div>
             <div v-else class="table-div">
+                <!-- 分组 -->
+                <div class="tree-froup-box" v-if="treeGroupConf.isOpen">
+                    <el-tooltip class="box-item" effect="dark" content="刷新" placement="bottom">
+                        <span class="tree-refresh" @click="treeRefresh">
+                            <el-icon>
+                                <ElIconRefresh />
+                            </el-icon>
+                        </span>
+                    </el-tooltip>
+                    <el-tooltip class="box-item" effect="dark" content="保存" placement="bottom">
+                        <span class="tree-refresh tree-save" @click="treeSave">
+                            <el-icon>
+                                <ElIconWallet />
+                            </el-icon>
+                        </span>
+                    </el-tooltip>
+                    <el-scrollbar>
+                        <ListcommonGroupFilter
+                            ref="ListcommonGroupFilterRefs"
+                            :entityCode="entityCode"
+                            :layoutConfig="layoutConfig"
+                            @nodeClick="commonGroupFilterNodeClick"
+                            @onRefresh="treeRefresh"
+                        />
+                        <ListTreeGropuFilter
+                            ref="ListTreeGropuFilterRefs"
+                            :treeGroupConf="treeGroupConf"
+                            :entityName="entityName"
+                            @check="treeGropuFilter"
+                        />
+                    </el-scrollbar>
+                </div>
+                <!-- 表格 -->
                 <el-table
                     ref="elTables"
                     :data="tableData"
@@ -145,15 +185,30 @@
                     </el-table-column>
                     <el-table-column label="操作" fixed="right" :align="'center'" width="120">
                         <template #default="scope">
+                            <el-tooltip
+                                class="box-item"
+                                effect="dark"
+                                :content="getEditBtnTitle(scope.row)"
+                                placement="top"
+                                v-if="scope.row.approvalStatus && (scope.row.approvalStatus.value == 3 || scope.row.approvalStatus.value == 1)"
+                            >
+                                <el-button
+                                    size="small"
+                                    icon="el-icon-edit"
+                                    link
+                                    type="primary"
+                                    disabled
+                                >编辑</el-button>
+                            </el-tooltip>
                             <el-button
+                                v-else
                                 size="small"
                                 icon="el-icon-edit"
                                 link
                                 type="primary"
                                 @click.stop="onEditRow(scope.row)"
-                                :disabled="scope.row.approvalStatus && (scope.row.approvalStatus.value == 3 || scope.row.approvalStatus.value == 1)"
-                                :title="getEditBtnTitle(scope.row)"
                             >编辑</el-button>
+
                             <el-button
                                 size="small"
                                 link
@@ -173,8 +228,13 @@
             @handleSizeChange="handleSizeChange"
             style="background: #fff;"
         />
-        <Detail ref="detailRefs" @onConfirm="getTableList" />
-        <Edit ref="editRefs" @onConfirm="getTableList" :nameFieldName="nameFieldName" />
+        <Detail ref="detailRefs" @onConfirm="getTableList" :layoutConfig="layoutConfig" />
+        <Edit
+            ref="editRefs"
+            @onConfirm="getTableList"
+            :nameFieldName="nameFieldName"
+            :layoutConfig="layoutConfig"
+        />
         <!-- 快速搜索字段 -->
         <mlSelectField
             ref="SelectFieldDialog"
@@ -186,6 +246,8 @@
             :entityName="entityName"
             :nameFieldName="nameFieldName"
         />
+        <!-- 批量编辑 -->
+        <ListBatchUpdate ref="ListBatchUpdateRef" @onConfirm="getTableList" />
     </div>
 </template>
 
@@ -194,7 +256,7 @@ import { ref, onBeforeMount, inject, reactive } from "vue";
 import { useRouter } from "vue-router";
 import { getDataList } from "@/api/crud";
 import mlListAdvancedQuery from "@/components/mlListAdvancedQuery/index.vue";
-import More from "./components/More.vue";
+import More from "./components/More/Index.vue";
 import Detail from "./detail.vue";
 import Edit from "./edit.vue";
 import FormatRow from "./components/FormatRow.vue";
@@ -203,6 +265,16 @@ import routerParamsStore from "@/store/modules/routerParams";
 import { storeToRefs } from "pinia";
 import useCommonStore from "@/store/modules/common";
 import { ElMessage } from "element-plus";
+/**
+ * 组件
+ */
+// 树状分组筛选
+import ListTreeGropuFilter from "./components/ListTreeGropuFilter.vue";
+// 批量编辑
+import ListBatchUpdate from "./components/ListBatchUpdate.vue";
+// 列表常用分组查询
+import ListcommonGroupFilter from "./components/ListcommonGroupFilter.vue";
+import { Message } from "@element-plus/icons-vue";
 const { allEntityCode } = storeToRefs(useCommonStore());
 const { setRouterParams } = routerParamsStore();
 const { routerParams } = storeToRefs(routerParamsStore());
@@ -300,6 +372,25 @@ const editColumn = (type) => {
     MoreRefs.value.editColumn(type);
 };
 
+/**
+ * 树状分组筛选
+ */
+let treeGroupConf = ref([]);
+/**
+ * 批量编辑
+ */
+let batchUpdateConf = ref([]);
+let ListBatchUpdateRef = ref("");
+// 打开批量编辑弹框
+const openBatchUpdateDialog = () => {
+    ListBatchUpdateRef.value.openDialog(
+        batchUpdateConf.value,
+        multipleSelection.value,
+        entityName.value,
+        idFieldName.value
+    );
+};
+
 // 获取导航配置
 const getLayoutList = async () => {
     let res = await $API.layoutConfig.getLayoutList(entityName.value);
@@ -324,7 +415,20 @@ const getLayoutList = async () => {
         layoutConfig.value = {
             SELF,
             ALL,
+            TREE_GROUP: res.data.TREE_GROUP,
+            BATCH_UPDATE: res.data.BATCH_UPDATE,
+            STYLE: res.data.STYLE,
+            COM_TREE_GROUP: res.data.COM_TREE_GROUP,
         };
+        // 树状分组筛选
+        if (res.data.TREE_GROUP) {
+            treeGroupConf.value = JSON.parse(res.data.TREE_GROUP.config);
+        }
+        // 批量编辑
+        if (res.data.BATCH_UPDATE) {
+            batchUpdateConf.value = JSON.parse(res.data.BATCH_UPDATE.config);
+        }
+        // treeGroup.value = ? ;
 
         // 如果存在默认配置，用默认配置
         if (res.data.chosenListType) {
@@ -447,7 +551,6 @@ const getEditBtnTitle = (row) => {
     let str = "";
     if (row.approvalStatus && row.approvalStatus.value == 3) {
         str = "记录已完成审批，禁止编辑";
-        return;
     }
     if (row.approvalStatus && row.approvalStatus.value == 1) {
         str = "记录正在审批中，禁止编辑";
@@ -554,6 +657,41 @@ const clearDataFilter = () => {
     getTableList();
 };
 
+/**
+ * 分组查询
+ */
+// 常用分组查询保存弹框
+let ListcommonGroupFilterRefs = ref("");
+// 列表分组树过滤组件
+let ListTreeGropuFilterRefs = ref("");
+let filterEasySql = ref("");
+const treeGropuFilter = (e) => {
+    ListcommonGroupFilterRefs.value.resetChecked();
+    filterEasySql.value = e;
+    getTableList();
+};
+// 分组刷新
+const treeRefresh = () => {
+    filterEasySql.value = "";
+    getLayoutList();
+};
+
+// 分组保存
+const treeSave = () => {
+    if (!filterEasySql.value) {
+        $ElMessage.warning("请勾选有效的筛选");
+        return;
+    }
+    ListcommonGroupFilterRefs.value.openSaveDialog(filterEasySql.value);
+};
+
+// 常用分组查询点击
+const commonGroupFilterNodeClick = (e) => {
+    ListTreeGropuFilterRefs.value.resetChecked();
+    filterEasySql.value = e;
+    getTableList();
+};
+
 const getTableList = async () => {
     if (
         routerParams.value.path &&
@@ -575,6 +713,7 @@ const getTableList = async () => {
         quickFilter: quickQuery.value,
         builtInFilter: builtInFilter.value,
         statistics: statistics.value,
+        filterEasySql: filterEasySql.value,
     };
     dataExportData.queryParm = { ...param };
     let res = await getDataList(
@@ -587,7 +726,8 @@ const getTableList = async () => {
         param.advFilter,
         param.quickFilter,
         param.builtInFilter,
-        param.statistics
+        param.statistics,
+        param.filterEasySql
     );
     if (res && res.data) {
         tableData.value = res.data.dataList;
@@ -646,7 +786,7 @@ const getSummaries = (param) => {
         // property
         if (formatterStatistics.value[column.property]) {
             let { label, value } = formatterStatistics.value[column.property];
-            sums[index] = (label ? label + "：" : '') + (value || 0);
+            sums[index] = (label ? label + "：" : "") + (value || 0);
         }
     });
 
@@ -709,6 +849,38 @@ div {
         }
         .table-div {
             height: calc(100% - 100px);
+            display: flex;
+            .tree-froup-box {
+                width: 300px;
+                border: 1px solid #ebeef5;
+                border-right: 0;
+                background: #fff;
+                box-sizing: border-box;
+                padding: 10px 0;
+                position: relative;
+                .tree-refresh {
+                    position: absolute;
+                    width: 20px;
+                    height: 20px;
+                    top: 5px;
+                    right: 10px;
+                    z-index: 66;
+                    cursor: pointer;
+                    text-align: center;
+                    line-height: 20px;
+                    border-radius: 4px;
+                    box-sizing: border-box;
+                    padding-top: 2px;
+                    font-size: 16px;
+                    &:hover {
+                        background: #f2f6fc;
+                    }
+                }
+                .tree-save {
+                    right: 35px;
+                }
+                // overflow:auto;
+            }
         }
     }
 }

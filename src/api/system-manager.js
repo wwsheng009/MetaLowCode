@@ -8,7 +8,7 @@ export function getEntitySet() {
 }
 
 export function filterEntitySet(keyword) {
-	return http.get('systemManager/filterEntitySet', { keyword})
+    return http.get('systemManager/filterEntitySet', { keyword })
 }
 
 export function getFieldSet(entity) {
@@ -162,10 +162,13 @@ export function getRefFieldExtras(field, entity) {
 }
 
 
-export function createFormLayout(entity, layoutJson) {
-	return http.post('formLayout/save', layoutJson, {
-		params: { entity }
-	})
+export function createFormLayout(entity, layoutJson, layoutName, shareTo) {
+    return http.post('formLayout/save', {
+        layoutJson:JSON.stringify(layoutJson),
+        shareTo,
+    }, {
+        params: { entity, layoutName, }
+    })
 }
 
 export function updateFormLayout(layoutId, layoutJson) {
@@ -174,8 +177,26 @@ export function updateFormLayout(layoutId, layoutJson) {
 	})
 }
 
+export function updateNameFormLayout(layoutId, layoutName, shareTo) {
+    return http.post('formLayout/updateName', { shareTo }, {
+        params: { layoutId, layoutName, }
+    })
+}
+
+export function deleteFormLayout(layoutId) {
+    return http.post('formLayout/delete', {}, {
+        params: { layoutId }
+    })
+}
+
+
 export function getFormLayout(entity) {
 	return http.get('formLayout/get', { entity })
+}
+
+
+export function getFormLayoutList(entity) {
+    return http.get('/formLayout/getList', { entity })
 }
 
 export function previewLayout(entity) {
