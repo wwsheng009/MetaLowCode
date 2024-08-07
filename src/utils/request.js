@@ -91,7 +91,7 @@ axios.interceptors.response.use(
 					data: null,
 				};
 				error.response.data = payload;
-				if (payload.code === 403) {
+				if (payload.code === 403 || payload.code === 401) {
 					ElMessageBox.confirm('当前用户已被登出或无权限访问当前资源，请尝试重新登录后再操作。', '无权限访问', {
 						type: 'error',
 						closeOnClickModal: false,
