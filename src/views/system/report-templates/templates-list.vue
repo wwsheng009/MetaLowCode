@@ -3,8 +3,8 @@
         ref="mlEntityMenuAndListRef"
         entityName="ReportConfig"
         aciveId="reportConfigId"
-        fieldsList="reportName,entityCode,isDisabled,modifiedOn,modifiedBy,createdOn"
-        @goDetial="goDetial"
+        fieldsList="reportName,entityCode,isDisabled,modifiedOn,modifiedBy,createdOn,pdfWatermark"
+        @goDetail="goDetail"
         :checkCodes="['reportName']"
         :codeErrMsg="['请输入模板名称']"
         :tableColumn="tableColumn"
@@ -15,7 +15,7 @@
         @changeSwitch="changeSwitch"
         @openAddDialog="openAddDialog"
     >
-        <template #addbutton>
+        <template #addButton>
             <el-button type="primary" @click="actionBtn({target:'add'})">
                 <el-icon size="14">
                     <ElIconPlus />
@@ -57,7 +57,7 @@ let tableColumn = ref([
         prop: "isDisabled",
         label: "启用",
         align: "center",
-        customSolt: "switch",
+        customSlot: "switch",
         isNegation: true,
         width: 80,
     },
@@ -117,7 +117,7 @@ const saveProcess = async () => {
 };
 
 // 跳转详情
-const goDetial = (row) => {
+const goDetail = (row) => {
     const to = router.resolve({
         path: "/web/luckysheet",
         query: {

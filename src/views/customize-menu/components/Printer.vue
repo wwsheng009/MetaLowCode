@@ -4,7 +4,7 @@
         <div class="printer-content" v-loading="loading">
             <div style="font-size: 16px; font-weight: bold; text-align: center; margin-bottom: 20px;">{{ printerTitle }}</div>
             <div class="v-from-box">
-                <v-form-render v-if="haveLayoutJson" :option-data="optionData" ref="vFormRef" />
+                <v-form-render v-if="haveLayoutJson" :option-data="optionData" :global-dsv="globalDsv" ref="vFormRef" />
             </div>
         </div>
     </div>
@@ -36,13 +36,14 @@ onMounted(async () => {
     }
     await getEntityList();
     // 加载vform表单
-    initVfromCom();
+    initVformCom();
 });
 
 let vFormRef = ref();
 let fromBoxRef = ref();
+let globalDsv = ref({});
 // 加载vform表单
-const initVfromCom = async () => {
+const initVformCom = async () => {
     loading.value = true;
     let res = await getFormLayout(queryEntityNameById(entityId.value));
     haveLayoutJson.value = false;
@@ -51,8 +52,11 @@ const initVfromCom = async () => {
         optionData.value = res.data.optionData || {};
         // 根据数据渲染出页面填入的值，填过
         nextTick(async () => {
+			globalDsv.value.formStatus = 'read'
+			globalDsv.value.formEntityId = entityId.value;
             let queryByIdRes = await queryById(entityId.value);
             if (queryByIdRes && queryByIdRes.data) {
+                globalDsv.value.rowRecordData = queryByIdRes.data;
                 vFormRef.value.setFormJson(res.data.layoutJson);
                 let resData = queryByIdRes.data || {};
                 printerTitle.value = resData[nameFieldName.value];
@@ -64,7 +68,7 @@ const initVfromCom = async () => {
                         vFormRef.value.reloadOptionData();
                     }
                     vFormRef.value.setReadMode();
-                    // 
+                    //
                     setTimeout(() => {
                         Print('.printer-content')
                         // window.print();
@@ -91,7 +95,7 @@ const initVfromCom = async () => {
     min-height: 100%;
     .printer-content {
         width: 52%;
-        margin: 0 auto; 
+        margin: 0 auto;
         .title {
             font-size: 16px;
             font-weight: bold;

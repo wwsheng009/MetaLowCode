@@ -1,29 +1,36 @@
 <template>
     <div class="customize-menu-list" v-loading="pageLoading">
         <div class="table-box">
-            <div class="table-search-box">
+            <div 
+                class="table-search-box"
+                v-if="listParamConf.showHeader"
+            >
+                <slot name="beforeAdvancedQuery"></slot>
                 <mlListAdvancedQuery
-                    v-if="entityCode"
+                    v-if="entityCode && listParamConf.showAdvancedQuery"
                     v-model="advFilter"
                     :entityName="entityName"
                     :entityCode="entityCode"
                     @queryNow="queryNow"
-                    @refresh="refresh"
+                    @refresh="refreshAdvancedQuery"
                     @onAddAdv="getLayoutList"
                     @changeAdvFilter="changeAdvFilter"
                     :filter="advancedFilter"
+                    :modelName="modelName"
+                    class="mr-15"
                 />
-                <div class="quick-query">
+                <slot name="beforeQuickQuery"></slot>
+                <div class="quick-query" v-if="listParamConf.showQuickQuery">
                     <el-input
                         v-model="quickQuery"
                         class="w-50 m-2"
                         :placeholder="quickQueryPlaceholder"
-                        @keyup.enter="getTableList"
+                        @keyup.enter="onQuickQuery()"
                         clearable
-                        @clear="getTableList"
+                        @clear="onClearQuickQuery()"
                     >
                         <template #append>
-                            <el-button @click="getTableList">
+                            <el-button @click="onQuickQuery()">
                                 <el-icon>
                                     <ElIconSearch />
                                 </el-icon>
@@ -40,29 +47,49 @@
                         </el-icon>
                     </span>
                 </div>
+                <slot name="afterQuickQuery"></slot>
                 <div class="data-filter" v-if="isDataFilter">
                     <el-tag type="success" closable @close="clearDataFilter">当前数据已过滤</el-tag>
                 </div>
                 <div class="fr table-setting">
+                    <slot name="beforeOpenBtn"></slot>
                     <el-button
                         icon="Notification"
                         :disabled="multipleSelection.length != 1"
                         @click="openDetailDialog(multipleSelection[0])"
-                    >打开</el-button>
+                        v-if="listParamConf.showOpenBtn && !mainDetailField"
+                    >
+                        打开
+                    </el-button>
+                    <slot name="beforeEditBtn"></slot>
                     <el-button
                         icon="Edit"
                         :disabled="multipleSelection.length != 1"
                         @click="onEditRow(multipleSelection[0])"
-                    >编辑</el-button>
+                        v-if="listParamConf.showEditBtn && !isReferenceComp"
+                    >
+                        编辑
+                    </el-button>
                     <el-button
                         icon="Edit"
                         v-if="batchUpdateConf.length > 0"
                         :disabled="multipleSelection.length < 1"
                         @click="openBatchUpdateDialog"
-                    >批量编辑</el-button>
-
-                    <el-button type="primary" icon="Plus" @click="onAdd">新建</el-button>
+                    >
+                        批量编辑
+                    </el-button>
+                    <slot name="beforeAddBtn"></slot>
+                    <el-button 
+                        type="primary" 
+                        icon="Plus" 
+                        @click="onAdd"
+                        v-if="listParamConf.showAddBtn"
+                    >
+                        新建
+                    </el-button>
+                    <slot name="beforeMoreBtn"></slot>
                     <More
+                        :showMoreBtn="listParamConf.showMoreBtn"
                         ref="MoreRefs"
                         :layoutConfig="layoutConfig"
                         :defaultColumnShow="defaultColumnShow"
@@ -76,7 +103,11 @@
                         @defaultFilterChange="getLayoutList"
                         @treeGroupFilterConfirm="getLayoutList"
                         :defaultFilterSetting="defaultFilterSetting"
+                        :isReferenceComp="isReferenceComp"
+                        :isMainDetailField="!!mainDetailField"
+                        :modelName="modelName"
                     />
+                    <slot name="afterMoreBtn"></slot>
                 </div>
             </div>
             <!-- 如果是默认列显示，但是默认列没有值 -->
@@ -111,7 +142,7 @@
                     <span class="lh-span-a" @click="editColumn('SELF')">前去配置</span>
                 </div>
             </div>
-            <div v-else class="table-div">
+            <div v-else class="table-div" :class="{'showPagination':listParamConf.showPagination}">
                 <!-- 分组 -->
                 <div class="tree-froup-box" v-if="treeGroupConf.isOpen">
                     <el-tooltip class="box-item" effect="dark" content="刷新" placement="bottom">
@@ -136,22 +167,21 @@
                             @nodeClick="commonGroupFilterNodeClick"
                             @onRefresh="treeRefresh"
                         />
-                        <ListTreeGropuFilter
-                            ref="ListTreeGropuFilterRefs"
+                        <ListTreeGroupFilter
+                            ref="ListTreeGroupFilterRefs"
                             :treeGroupConf="treeGroupConf"
                             :entityName="entityName"
-                            @check="treeGropuFilter"
+                            @check="treeGroupFilter"
                         />
                     </el-scrollbar>
                 </div>
                 <!-- 表格 -->
                 <el-table
-                    ref="elTables"
-                    :data="tableData"
+                    ref="TableRef"
+                    :data="sliceTable"
                     :border="true"
                     stripe
                     style="width: 100%"
-                    @selection-change="handleSelectionChange"
                     :height="setTableHeight()"
                     @sort-change="sortChange"
                     @header-dragend="headerDragend"
@@ -159,12 +189,29 @@
                     @row-dblclick="rowDblclick"
                     :show-summary="statisticsList.length > 0"
                     :summary-method="getSummaries"
+                    :row-style="setRowStyle"
                 >
                     <el-table-column
-                        type="selection"
                         :width="statisticsList.length > 0 ? 60 : 50"
                         :align="'center'"
-                    />
+                    >
+                        <template #header>
+                            <el-checkbox 
+                                checked 
+                                v-if="selectedAllStatus == 1"
+                                @click="selectAllChange('clear')"
+                            />
+                            <el-checkbox 
+                                indeterminate 
+                                v-else-if="selectedAllStatus == 2"
+                                @click="selectAllChange('all')"
+                            />
+                            <el-checkbox v-else @click="selectAllChange('all')"/>
+                        </template>
+                        <template #default="scope">
+                            <el-checkbox v-model="scope.row.isSelected" @change="handleHighlightChangeTable(scope.row)"/>
+                        </template>
+                    </el-table-column>
                     <el-table-column
                         v-for="(column,columnInx) of tableColumn"
                         :key="columnInx"
@@ -183,14 +230,21 @@
                             />
                         </template>
                     </el-table-column>
-                    <el-table-column label="操作" fixed="right" :align="'center'" width="120">
+                    <slot name="actionColumn" v-if="showActionColumnSlot"></slot>
+                    <el-table-column 
+                        v-else
+                        label="操作" 
+                        fixed="right" 
+                        :align="'center'" 
+                        width="120"
+                    >
                         <template #default="scope">
                             <el-tooltip
                                 class="box-item"
                                 effect="dark"
-                                :content="getEditBtnTitle(scope.row)"
+                                :content="getEditBtnTitle(scope.row) || '此状态不可编辑'"
                                 placement="top"
-                                v-if="scope.row.approvalStatus && (scope.row.approvalStatus.value == 3 || scope.row.approvalStatus.value == 1)"
+                                v-if="scope.row.approvalStatus && (scope.row.approvalStatus.value == 3 || scope.row.approvalStatus.value == 1) || referenceCompStatus == 'read'"
                             >
                                 <el-button
                                     size="small"
@@ -224,16 +278,19 @@
             :no="page.no"
             :size="page.size"
             :total="page.total"
+            :pageSizes="page.pageSizes"
             @pageChange="pageChange"
             @handleSizeChange="handleSizeChange"
             style="background: #fff;"
+            v-if="listParamConf.showPagination"
         />
-        <Detail ref="detailRefs" @onConfirm="getTableList" :layoutConfig="layoutConfig" />
-        <Edit
+        <mlCustomDetail ref="detailRefs" :entityName="entityName" @updateData="getTableList"/>
+        <mlCustomEdit 
             ref="editRefs"
-            @onConfirm="getTableList"
+            :entityName="entityName"
             :nameFieldName="nameFieldName"
             :layoutConfig="layoutConfig"
+            @saveFinishCallBack="editConfirm"
         />
         <!-- 快速搜索字段 -->
         <mlSelectField
@@ -245,6 +302,7 @@
             @onConfirm="getLayoutList"
             :entityName="entityName"
             :nameFieldName="nameFieldName"
+            :modelName="modelName"
         />
         <!-- 批量编辑 -->
         <ListBatchUpdate ref="ListBatchUpdateRef" @onConfirm="getTableList" />
@@ -252,13 +310,33 @@
 </template>
 
 <script setup>
-import { ref, onBeforeMount, inject, reactive } from "vue";
+defineOptions({
+    name: "default-list",
+});
+import { 
+    ref, 
+    onBeforeMount, 
+    inject, 
+    reactive, 
+    onMounted, 
+    onUnmounted,
+    onActivated,
+    watchEffect,
+    useSlots,
+    computed,
+    watch,
+} from "vue";
 import { useRouter } from "vue-router";
 import { getDataList } from "@/api/crud";
 import mlListAdvancedQuery from "@/components/mlListAdvancedQuery/index.vue";
 import More from "./components/More/Index.vue";
-import Detail from "./detail.vue";
-import Edit from "./edit.vue";
+// import Detail from "./detail.vue";
+// import Edit from "./edit.vue";
+import mlCustomDetail from '@/components/mlCustomDetail/index.vue';
+import mlCustomEdit from '@/components/mlCustomEdit/index.vue';
+
+
+
 import FormatRow from "./components/FormatRow.vue";
 import mlSelectField from "@/components/mlSelectField/index.vue";
 import routerParamsStore from "@/store/modules/routerParams";
@@ -269,24 +347,82 @@ import { ElMessage } from "element-plus";
  * 组件
  */
 // 树状分组筛选
-import ListTreeGropuFilter from "./components/ListTreeGropuFilter.vue";
+import ListTreeGroupFilter from "./components/ListTreeGroupFilter.vue";
 // 批量编辑
 import ListBatchUpdate from "./components/ListBatchUpdate.vue";
 // 列表常用分组查询
 import ListcommonGroupFilter from "./components/ListcommonGroupFilter.vue";
-import { Message } from "@element-plus/icons-vue";
+
+
 const { allEntityCode } = storeToRefs(useCommonStore());
 const { setRouterParams } = routerParamsStore();
 const { routerParams } = storeToRefs(routerParamsStore());
 const router = useRouter();
 
 const $API = inject("$API");
+const $TOOL = inject("$TOOL");
 const $ElMessage = inject("$ElMessage");
+
+const emits = defineEmits(['referenceCompAdd'])
+
+const props = defineProps({
+    listConf: {
+        type: Object,
+        default: () => {}
+    },
+    paginationConf: {
+        type: Object,
+        default: () => {}
+    },
+    // 是否引入组件
+    isReferenceComp: {
+        type: Boolean,
+        default: false,
+    },
+    // 是否表单设计模式
+    isVFormDesignMode: {
+        type: Boolean,
+        default: false,
+    },
+    // 引入组件的引入实体
+    referenceEntity: {
+        type: String,
+        default: ""
+    },
+    // 引入组件的父实体行ID
+    formEntityId: {
+        type: String,
+        default: ""
+    },
+    // 引入组件的父组件状态
+    referenceCompStatus: {
+        type: String,
+        default: ""
+    },
+    // 是否从实体
+    detailEntityFlag: {
+        type: Boolean,
+        default: true,
+    },
+    // 非从实体绑定字段
+    refEntityBindingField: {
+        type: String,
+        default: "",
+    },
+    // 实体模块名称
+    modelName: {
+        type: String,
+        default: "",
+    },
+
+})
+
 // 页面Loading
 let pageLoading = ref(false);
 // 当前实体
 let entityCode = ref("");
 let entityName = ref("");
+
 // 表格列
 let tableColumn = ref([]);
 // 所有字段
@@ -296,12 +432,7 @@ let tableData = ref([]);
 
 // 表格多选数据
 let multipleSelection = ref([]);
-// 分页
-let page = reactive({
-    no: 1,
-    size: 20,
-    total: 0,
-});
+
 // 自定义配置数据
 let layoutConfig = ref({});
 // 默认列显示
@@ -330,7 +461,7 @@ let titleWidthForAll = reactive({});
 let titleWidthForSelf = reactive({});
 // 默认查询设置
 let defaultFilterSetting = ref({});
-
+let defaultFilter = ref({});
 // 快捷查询
 let quickQuery = ref("");
 let quickQueryPlaceholder = ref("");
@@ -348,8 +479,73 @@ let nameFieldName = ref("");
 // 新建配置项
 let addConf = reactive({});
 
+let TableRef = ref("");
+
+let isMounted = ref(false);
+
+// 分页
+let page = reactive({
+    no: 1,
+    size: 20,
+    pageSizes: [20, 40, 80, 100, 200, 300, 400, 500],
+    total: 0,
+});
+
+// 插槽内容
+let contentSlots = reactive({});
+// 是否显示操作列插槽
+let showActionColumnSlot = ref(false);
+
+// Api：https://www.yuque.com/xieqi-nzpdn/as7g0w/khgyptll0tom0iog
+// 配置项
+const listParamConf = ref({
+    showHeader: true,
+    showAdvancedQuery: true,
+    showQuickQuery: true,
+    showOpenBtn: true,
+    showEditBtn: true,
+    showAddBtn: true,
+    showMoreBtn: true,
+    showPagination: true,
+})
+
+
+
+watch(
+    () => props.referenceEntity,
+    () => {
+        formatReferenceEntity();
+    },
+    {
+        deep: true,
+    }
+)
+
+const formatReferenceEntity = () => {
+    entityCode.value = allEntityCode.value[props.referenceEntity];
+    entityName.value = props.referenceEntity;
+    if (!entityCode.value) {
+        return;
+    }
+    quickQueryConf.entityCode = entityCode.value;
+    // 获取导航配置
+    getLayoutList();
+    // 如果是引入组件
+}
+
+
+
+
+// 是否显示高级查询
+// isShowAdvancedQuery: true,
+            
+
+
+
+
+
 onBeforeMount(() => {
-    let routerEntityname = router.currentRoute.value.params?.entityname;
+    let routerEntityname = router.currentRoute.value.params?.entityname || router.currentRoute.value.query?.entity;
     if (routerEntityname) {
         entityCode.value = allEntityCode.value[routerEntityname];
         entityName.value = routerEntityname;
@@ -357,13 +553,71 @@ onBeforeMount(() => {
         entityCode.value = router.currentRoute.value.meta.entityCode;
         entityName.value = router.currentRoute.value.meta.entityName;
     }
+    // 是引入组件
+    if(props.isReferenceComp){
+        formatReferenceEntity();
+        return
+    }
     if (!entityCode.value) {
         ElMessage.warning("该实体不存在或者已删除");
         return;
     }
     quickQueryConf.entityCode = entityCode.value;
+    loadRouterParams();
     // 获取导航配置
     getLayoutList();
+});
+
+onMounted(()=>{
+    // 挂载
+	TableRef.value &&
+		TableRef.value.$refs.bodyWrapper.addEventListener(
+			"mousewheel",
+			scrollBehavior
+		);
+    isMounted.value = true;
+    // 取插槽内容
+    contentSlots = useSlots();
+    // 判断是否有操作列插槽
+    showActionColumnSlot.value = contentSlots.actionColumn ? true : false;
+})
+
+
+// 滚动行为
+function scrollBehavior(e) {
+	// 滚动方向判定
+	const scrollDirection = e.deltaY > 0 ? "down" : "up";
+	if (scrollDirection === "down") {
+		// 获取提供实际滚动的容器
+		const dom =
+			TableRef.value.$refs.bodyWrapper.getElementsByClassName(
+				"el-scrollbar__wrap"
+			)[0];
+		const { clientHeight, scrollTop, scrollHeight } = dom;
+		// 父容器高度 + 子容器距离父容器顶端的高度 = 子容器可滚动的高度
+		if (scrollHeight - (clientHeight + scrollTop) <= 300) {
+			
+            if(sliceTable.value.length == tableData.value.length){
+                return
+            }
+            // console.log("竖向滚动条已经滚动到底部，开始加载数据了~");
+			sliceTable.value.push(
+				...tableData.value.slice(
+					sliceTable.value.length,
+					sliceTable.value.length + 20
+				)
+			);
+		}
+	}
+}
+
+onUnmounted(() => {
+	// 卸载
+	TableRef.value &&
+		TableRef.value.$refs.bodyWrapper.removeEventListener(
+			"mousewheel",
+			scrollBehavior
+		);
 });
 
 // 配置自定义列显示
@@ -391,15 +645,35 @@ const openBatchUpdateDialog = () => {
     );
 };
 
+// 设置行样式
+let renderRowStyle = ref("");
+const setRowStyle = ({row, rowIndex}) => {
+    let rowStyle = {};
+    if(rowIndex % 2 == 1){
+        rowStyle.background = "var(--el-fill-color-lighter)"
+    }
+    let newRowStyle = new Function('row, rowIndex', renderRowStyle.value)(row, rowIndex);
+    rowStyle = Object.assign(rowStyle, newRowStyle);
+    return rowStyle;
+}
+
+let mainDetailField = ref("");
+// 用于区分保存配置
+let myModelName = ref("");
 // 获取导航配置
 const getLayoutList = async () => {
-    let res = await $API.layoutConfig.getLayoutList(entityName.value);
+    let res = await $API.layoutConfig.getLayoutList(entityName.value, myModelName.value);
     if (res && res.data) {
         idFieldName.value = res.data.idFieldName;
         nameFieldName.value = res.data.nameFieldName;
         advFilter.value = res.data.advFilter || "all";
         advancedFilter.value = res.data.FILTER;
+        mainDetailField.value = res.data.mainDetailField;
+        filterEasySql.value = "";
         defaultFilterSetting.value = res.data.DEFAULT_FILTER || {};
+        if(defaultFilterSetting.value.config){
+            defaultFilter.value = JSON.parse(defaultFilterSetting.value.config);
+        }
         quickQueryPlaceholder.value = res.data.quickFilterLabel;
         addConf = res.data.ADD ? { ...res.data.ADD } : {};
         let { ALL, SELF } = res.data.LIST;
@@ -419,7 +693,16 @@ const getLayoutList = async () => {
             BATCH_UPDATE: res.data.BATCH_UPDATE,
             STYLE: res.data.STYLE,
             COM_TREE_GROUP: res.data.COM_TREE_GROUP,
+            idFieldName: idFieldName.value,
+            nameFieldName: nameFieldName.value
         };
+        // 自定义行样式
+        if(res.data.STYLE && res.data.STYLE.config){
+            let styleConfig = JSON.parse(res.data.STYLE.config);
+            if(styleConfig.rowConf && styleConfig.rowConf.rowStyleRender){
+                renderRowStyle.value = styleConfig.rowConf.rowStyleRender;
+            }
+        }
         // 树状分组筛选
         if (res.data.TREE_GROUP) {
             treeGroupConf.value = JSON.parse(res.data.TREE_GROUP.config);
@@ -525,25 +808,79 @@ const handleSizeChange = (size) => {
     getTableList();
 };
 
-// 表格多选
-const handleSelectionChange = (val) => {
-    multipleSelection.value = val;
-};
-let elTables = ref("");
+
+/**
+ * 全选状态
+ * 1 全选
+ * 2 半选
+ * 3 没有
+ */
+let selectedAllStatus = computed(() => {
+    let status = 3;
+    let findSelected = tableData.value.filter(el=> el.isSelected);
+    // 是全选
+    if(findSelected.length == tableData.value.length){
+        status = 1
+    }
+    // 有选中
+    if(findSelected.length > 0 && findSelected.length < tableData.value.length){
+        status = 2
+    }
+    multipleSelection.value = [...findSelected];
+    // 没有任何选中
+    return status
+})
+
+// 全选切换
+const selectAllChange = (target) => {
+    tableData.value.forEach(el => {
+        el.isSelected = target == 'all';
+    })
+    sliceTable.value.forEach(el => {
+        el.isSelected = target == 'all';
+    })
+}
+
+
 // 表格行点击选中
 const handleHighlightChangeTable = (row, column) => {
-    if (!row.disabled) {
-        elTables.value.toggleRowSelection(row);
-    }
+    row.isSelected = !row.isSelected;
 };
 
 // 编辑弹框
 let editRefs = ref();
+// 引用组件所关联的主表行ID
+let myFormEntityId = ref("");
 
 // 新建
-const onAdd = () => {
-    let tempV = {};
+const onAdd = (localDsv) => {
+    let { isReferenceComp, detailEntityFlag, refEntityBindingField } = props;
+    if(isReferenceComp){
+        if(!detailEntityFlag && !myFormEntityId.value){
+            ElMessage.info("主表单未保存，不能新建关联引用记录。")
+            return
+        }
+        emits('referenceCompAdd',(formData) => {
+            let tempV = {
+                isReferenceComp: true,
+                detailEntityFlag,
+                refEntityBindingField,
+            };
+            tempV.entityName = entityName.value;
+            tempV.formData = formData;
+            tempV.idFieldName = idFieldName.value;
+            tempV.formEntityId = myFormEntityId.value;
+            tempV.mainDetailField = mainDetailField.value;
+            editRefs.value.openDialog(tempV);
+        });
+        return
+    }
+    let tempV = {
+    };
     tempV.entityName = entityName.value;
+    tempV.idFieldName = idFieldName.value;
+    tempV.formEntityId = "";
+    !!localDsv && (tempV.localDsv = localDsv)
     editRefs.value.openDialog(tempV);
 };
 
@@ -558,15 +895,40 @@ const getEditBtnTitle = (row) => {
     return str;
 };
 // 编辑
-const onEditRow = (row) => {
+const onEditRow = (row, localDsv) => {
     if (!row) {
         $ElMessage.warning("请先选择数据");
         return;
     }
-    let tempV = {};
+    let { isReferenceComp, detailEntityFlag, refEntityBindingField } = props;
+    let tempV = {
+        detailEntityFlag,
+        refEntityBindingField,
+    };
     tempV.detailId = row[idFieldName.value];
+    tempV.idFieldName = idFieldName.value;
+    tempV.formEntityId = myFormEntityId.value;
+    tempV.mainDetailField = mainDetailField.value;
+    !!localDsv && (tempV.localDsv = localDsv)
     editRefs.value.openDialog(tempV);
 };
+
+// 编辑成功后回调
+const editConfirm = (e) => {
+    if(props.isReferenceComp && e.needCb){
+        emits('saveFinishCallBack', e);
+    }else {
+        getLayoutList();
+    }
+}
+
+// 子表单引用回调
+const saveSubFormListCb = (data) => {
+    if(data.needCb){
+        myFormEntityId.value = data.recordId;
+    }
+    getLayoutList();
+}
 
 let detailRefs = ref("");
 
@@ -575,12 +937,20 @@ const rowDblclick = (row) => {
 };
 
 // 打开详情
-const openDetailDialog = (row) => {
+const openDetailDialog = (row, localDsv) => {
     if (!row) {
         $ElMessage.warning("请先选择数据");
         return;
     }
-    detailRefs.value.openDialog(row[idFieldName.value]);
+    // 是明细表编辑
+    if(mainDetailField.value){
+        let tempV = {};
+        tempV.isRead = true;
+        tempV.detailId = row[idFieldName.value];
+        editRefs.value.openDialog(tempV);
+        return
+    }
+    detailRefs.value.openDialog(row[idFieldName.value], localDsv);
 };
 
 // 列排序
@@ -634,9 +1004,8 @@ const queryNow = (e) => {
     queryFilter = { ...e };
     getTableList();
 };
-
-// 重置
-const refresh = () => {
+// 重置高级筛选
+const refreshAdvancedQuery = () => {
     queryFilter = { equation: "AND", items: [] };
     getTableList();
 };
@@ -663,9 +1032,9 @@ const clearDataFilter = () => {
 // 常用分组查询保存弹框
 let ListcommonGroupFilterRefs = ref("");
 // 列表分组树过滤组件
-let ListTreeGropuFilterRefs = ref("");
+let ListTreeGroupFilterRefs = ref("");
 let filterEasySql = ref("");
-const treeGropuFilter = (e) => {
+const treeGroupFilter = (e) => {
     ListcommonGroupFilterRefs.value.resetChecked();
     filterEasySql.value = e;
     getTableList();
@@ -687,35 +1056,41 @@ const treeSave = () => {
 
 // 常用分组查询点击
 const commonGroupFilterNodeClick = (e) => {
-    ListTreeGropuFilterRefs.value.resetChecked();
+    ListTreeGroupFilterRefs.value.resetChecked();
     filterEasySql.value = e;
     getTableList();
 };
 
+let sliceTable = ref([]);
+
 const getTableList = async () => {
-    if (
-        routerParams.value.path &&
-        routerParams.value.path == router.currentRoute.value.path
-    ) {
-        quickQuery.value = routerParams.value.quickFilter;
-        builtInFilter.value = routerParams.value.filter;
-        isDataFilter.value = true;
-    }
     pageLoading.value = true;
+    let { isReferenceComp, detailEntityFlag, refEntityBindingField } = props;
+    // 如果是列表子表单引用组件
+    if(isReferenceComp){
+        // 如果是明细实体
+        if(detailEntityFlag){
+            filterEasySql.value = `${mainDetailField.value} = '${myFormEntityId.value}'`
+        }else {
+            filterEasySql.value = `${refEntityBindingField} = '${myFormEntityId.value}'`
+        }
+    }
     let param = {
         mainEntity: entityName.value,
         fieldsList: allFields.value.join(),
         pageSize: page.size,
         pageNo: page.no,
-        filter: { ...queryFilter },
+        filter: JSON.parse(JSON.stringify(queryFilter)),
         advFilter: { ...comQueriesList },
         sortFields: sortFields.value,
         quickFilter: quickQuery.value,
         builtInFilter: builtInFilter.value,
         statistics: statistics.value,
         filterEasySql: filterEasySql.value,
+        defaultFilter: defaultFilter.value,
     };
     dataExportData.queryParm = { ...param };
+    
     let res = await getDataList(
         param.mainEntity,
         param.fieldsList,
@@ -727,10 +1102,14 @@ const getTableList = async () => {
         param.quickFilter,
         param.builtInFilter,
         param.statistics,
-        param.filterEasySql
+        param.filterEasySql,
+        param.defaultFilter
     );
     if (res && res.data) {
-        tableData.value = res.data.dataList;
+        tableData.value = res.data.dataList.map(el => {
+            el.isSelected = false;
+            return el
+        });
         page.total = res.data.pagination.total;
         dataExportData.size = res.data.dataList.length;
         dataExportData.total = res.data.pagination.total;
@@ -744,6 +1123,7 @@ const getTableList = async () => {
                 };
             });
         }
+        sliceTable.value = tableData.value.slice(0, 20);
     }
     pageLoading.value = false;
 };
@@ -771,7 +1151,7 @@ const setColumnWidth = (column) => {
     if (column.columnWidth && column.columnWidth > 0) {
         return column.columnWidth;
     }
-    return "150";
+    return null;
 };
 
 // 统计显示
@@ -808,8 +1188,194 @@ const changeColumnShow = (type) => {
 };
 
 /**
- *
+ * 缓存页面后依旧调用
  */
+ onActivated(() => {
+    if(isMounted.value){
+        isMounted.value = false;
+    }else {
+        loadRouterParams(true)
+    }
+})
+
+
+watchEffect(() => {
+    listParamConf.value = Object.assign(listParamConf.value, props.listConf)
+    page.size = props.paginationConf?.size || 20;
+    page.pageSizes = props.paginationConf?.pageSizes || [20, 40, 80, 100, 200, 300, 400, 500];
+    myFormEntityId.value = props.formEntityId;
+    myModelName.value = props.modelName;
+    if(mainDetailField.value){
+        listParamConf.value.showAddBtn = false;
+    }
+    if(props.isReferenceComp){
+        if(props.referenceCompStatus == 'new' || props.referenceCompStatus == 'edit'){
+            listParamConf.value.showAddBtn = true;
+        }
+        if(props.referenceCompStatus == 'read'){
+            listParamConf.value.showAddBtn = false;
+            listParamConf.value.showEditBtn = false;
+            listParamConf.value.showMoreBtn = false;
+        }
+        if(props.isVFormDesignMode){
+            listParamConf.value.showOpenBtn = false;
+            listParamConf.value.showAddBtn = false;
+            listParamConf.value.showEditBtn = false;
+            // listParamConf.value.showMoreBtn = false;
+        }
+    }
+})
+
+const loadRouterParams = (cbApi) => {
+    if (
+        routerParams.value.path &&
+        routerParams.value.path == router.currentRoute.value.path
+    ) {
+        quickQuery.value = routerParams.value.quickFilter;
+        builtInFilter.value = routerParams.value.filter;
+        isDataFilter.value = true;
+        if(cbApi){
+            getTableList();
+        }
+    }
+}
+
+/**
+ * 导出方法
+ */
+
+// 重置表格数据
+const resetList = () => {
+    quickQuery.value = "";
+    queryFilter = { equation: "AND", items: [] };
+    getLayoutList();
+}
+
+// 刷新表格数据
+const refreshList = () => {
+    getTableList();
+}
+
+// 快速查询
+const onQuickQuery = () => {
+    if(!quickQueryPlaceholder.value){
+        ElMessage.warning("请配置快速查询字段!");
+        return
+    }
+    getTableList();
+}
+
+// 清空快速查询
+const onClearQuickQuery = () => {
+    if(quickQueryPlaceholder.value){
+        getTableList();
+    }
+}
+
+// 获取实体信息
+const getCurEntity = () => {
+    return {
+        name: entityName.value,
+        code: entityCode.value,
+        idFieldName: idFieldName.value,
+        nameFieldName: nameFieldName.value,
+    }
+}
+// 获取选中数据
+const getSelectedRow = () => {
+    return multipleSelection.value 
+}
+
+// 编辑数据
+const toEdit = (localDsv) => {
+    if(multipleSelection.value.length < 1){
+        ElMessage.warning("请先选择数据")
+        return
+    }
+    if(multipleSelection.value.length > 1){
+        ElMessage.warning("仅支持编辑单条数据")
+        return
+    }
+    let row = multipleSelection.value[0];
+    if(row.approvalStatus && (row.approvalStatus.value == 3 || row.approvalStatus.value == 1)){
+        ElMessage.warning("当前数据这个在审批中或者已审批结束，不可编辑。")
+        return
+    }
+    onEditRow(row, localDsv);
+}
+
+// 查看详情
+const toDetail = (localDsv) => {
+    if(multipleSelection.value.length < 1){
+        ElMessage.warning("请先选择数据")
+        return
+    }
+    if(multipleSelection.value.length > 1){
+        ElMessage.warning("仅支持查看单条数据详情")
+        return
+    }
+    let row = multipleSelection.value[0];
+    openDetailDialog(row, localDsv)
+}
+
+// 新建数据
+const toAdd = (localDsv) => {
+    onAdd(localDsv);
+}
+
+// 更多操作
+const toMoreAction = (type) => {
+    let allocationTypes = ['del', 'allocation', 'share', 'unShare'];
+    if(allocationTypes.includes(type)){
+        if(multipleSelection.value.length < 1){
+            ElMessage.warning("请先选择数据")
+            return
+        }
+        MoreRefs.value?.allocationFn(type);
+    }else if(type == 'dataExport'){
+        MoreRefs.value?.dataExportFn(type);
+    }else if(type == 'dataUpload'){
+        MoreRefs.value?.dataUploadFn(type);
+    }
+}
+
+// 显示列设置
+const showColumnSetting = (type) => {
+    MoreRefs.value?.editColumn(type)
+}
+
+// 更多列表设置
+const listMoreSetting = (type) => {
+    MoreRefs.value?.listMoreSetting(type)
+}
+
+// 编辑行
+const editRow = (row, localDsv) => {
+    onEditRow(row, localDsv);
+}
+
+// 查看行
+const viewRow = (row, localDsv) => {
+    openDetailDialog(row, localDsv)
+}
+
+
+defineExpose({
+    resetList,
+    refreshList,
+    getCurEntity,
+    getSelectedRow,
+    toEdit,
+    toAdd,
+    toDetail,
+    toMoreAction,
+    showColumnSetting,
+    listMoreSetting,
+    saveSubFormListCb,
+    editRow,
+    viewRow,
+})
+
 </script>
 <style lang='scss' scoped>
 div {
@@ -824,17 +1390,17 @@ div {
     position: relative;
     height: 100%;
     box-sizing: border-box;
-
+    min-width: 1200px;
     .table-box {
         height: 100%;
-        border-top: 3px solid var(--el-color-primary);
         // padding: 20px 0;
         .table-search-box {
+            border-top: 3px solid var(--el-color-primary);
             background: #fff;
             height: 60px;
             line-height: 60px;
             padding: 0 20px;
-
+            box-sizing: border-box;
             .table-setting {
                 // margin-top: 5px;
                 .el-dropdown-link {
@@ -848,7 +1414,11 @@ div {
             }
         }
         .table-div {
-            height: calc(100% - 100px);
+            height: calc(100% - 60px);
+            &.showPagination {
+                height: calc(100% - 100px);
+            }
+            width: 100%;
             display: flex;
             .tree-froup-box {
                 width: 300px;
@@ -881,6 +1451,12 @@ div {
                 }
                 // overflow:auto;
             }
+
+            :deep(.el-table__row){
+                td {
+                    background: initial !important;
+                }
+            }
         }
     }
 }
@@ -901,7 +1477,6 @@ div {
 
 .quick-query {
     display: inline-block;
-    margin-left: 15px;
     width: 300px;
     padding-right: 30px;
     position: relative;

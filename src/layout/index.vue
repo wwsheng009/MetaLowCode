@@ -7,7 +7,7 @@
                     <mlLogo class="logo" />
                     <span>{{ appName }}</span>
                 </div>
-                <ul v-if="!ismobileFn" class="nav">
+                <!-- <ul v-if="!ismobileFn" class="nav">
                     <li
                         v-for="item in menu"
                         :key="item"
@@ -19,7 +19,29 @@
                         </el-icon>
                         <span>{{ item.meta.title }}</span>
                     </li>
-                </ul>
+                </ul> -->
+            </div>
+            <div 
+                class="adminui-header-center" 
+                v-if="!ismobileFn" 
+                :style="{'width': getHeaderCenterWidht}"
+            >
+                <el-scrollbar>
+                    <div class="scrollbar-flex-content">
+                        <p  
+                            v-for="item in menu"
+                            :key="item"
+                            class="scrollbar-demo-item"
+                            :class="pmenu.path==item.path ? 'active' : '' "
+                            @click="showMenu(item)"
+                        >
+                            <el-icon :style="{'color':item.meta.iconColor}" class="mr-2">
+                                <component :is="item.meta.icon || 'el-icon-menu'" />
+                            </el-icon>
+                            {{ item.meta.title }}
+                        </p>
+                    </div>
+                </el-scrollbar>
             </div>
             <div class="adminui-header-right">
                 <userbar></userbar>
@@ -60,12 +82,8 @@
                         >{{ pluginInfo[$route.name].errMsg }}</div>
                         <template v-else>
                             <router-view v-slot="{ Component }">
-                                <keep-alive :include="keepLiveRouteFn">
-                                    <component
-                                        :is="Component"
-                                        :key="$route.fullPath"
-                                        v-if="routeShowFn"
-                                    />
+                                <keep-alive :include="[...keepLiveRouteFn]">
+                                    <component :is="wrap($route.fullPath, Component)" :key="$route.fullPath" v-if="routeShowFn"/>
                                 </keep-alive>
                             </router-view>
                             <iframe-view></iframe-view>
@@ -122,12 +140,8 @@
                         >{{ pluginInfo[$route.name].errMsg }}</div>
                         <template v-else>
                             <router-view v-slot="{ Component }">
-                                <keep-alive :include="keepLiveRouteFn">
-                                    <component
-                                        :is="Component"
-                                        :key="$route.fullPath"
-                                        v-if="routeShowFn"
-                                    />
+                                <keep-alive :include="[...keepLiveRouteFn]">
+                                    <component :is="wrap($route.fullPath, Component)" :key="$route.fullPath" />
                                 </keep-alive>
                             </router-view>
                             <iframe-view></iframe-view>
@@ -177,12 +191,8 @@
                         >{{ pluginInfo[$route.name].errMsg }}</div>
                         <template v-else>
                             <router-view v-slot="{ Component }">
-                                <keep-alive :include="keepLiveRouteFn">
-                                    <component
-                                        :is="Component"
-                                        :key="$route.fullPath"
-                                        v-if="routeShowFn"
-                                    />
+                                <keep-alive :include="[...keepLiveRouteFn]">
+                                    <component :is="wrap($route.fullPath, Component)" :key="$route.fullPath" />
                                 </keep-alive>
                             </router-view>
                             <iframe-view></iframe-view>
@@ -256,12 +266,8 @@
                         >{{ pluginInfo[$route.name].errMsg }}</div>
                         <template v-else>
                             <router-view v-slot="{ Component }">
-                                <keep-alive :include="keepLiveRouteFn">
-                                    <component
-                                        :is="Component"
-                                        :key="$route.fullPath"
-                                        v-if="routeShowFn"
-                                    />
+                                <keep-alive :include="[...keepLiveRouteFn]">
+                                    <component :is="wrap($route.fullPath, Component)" :key="$route.fullPath" />
                                 </keep-alive>
                             </router-view>
                             <iframe-view></iframe-view>
@@ -300,8 +306,10 @@ import useKeepAliveStore from "@/store/modules/keepAlive";
 import useGlobalStore from "@/store/modules/global";
 import useCommonStore from "@/store/modules/common";
 import { storeToRefs } from "pinia";
+import useLayoutConfigStore from "@/store/modules/layoutConfig";
 const { publicSetting } = storeToRefs(useCommonStore());
-
+const { topDefaultUnfold } = storeToRefs(useLayoutConfigStore());
+// 
 import navigation from "./components/navigationList.vue";
 
 const { keepLiveRoute, routeShow } = storeToRefs(useKeepAliveStore());
@@ -310,7 +318,8 @@ const { ismobile, layout, layoutTags, menuIsCollapse } = storeToRefs(
 );
 
 const { SET_ismobile, TOGGLE_menuIsCollapse } = useGlobalStore();
-
+import { h } from "vue";
+const wrapperMap = new Map()
 export default {
     name: "index",
     components: {
@@ -380,12 +389,21 @@ export default {
         appName: () => {
             return publicSetting.value.APP_NAME;
         },
+        getHeaderCenterWidht(){
+            let computedWidth;
+            let nameLangth = this.appName?.length;
+            if(nameLangth < 7){
+                computedWidth = 520;
+            }else {
+                computedWidth = 540 + ((nameLangth - 6 ) * 20);
+            }
+            return "calc(100% - "+ computedWidth +"px)";
+        },
     },
     created() {
         this.onLayoutResize();
         window.addEventListener("resize", this.onLayoutResize);
         var menu = this.$router.sc_getMenu();
-        console.log("4. 页面使用路由菜单...", menu);
         this.menu = this.filterUrl(menu);
         this.getDefaultOpeneds();
         this.showThis();
@@ -402,6 +420,25 @@ export default {
         },
     },
     methods: {
+        // 为keep-alive里的component接收的组件包上一层自定义name的壳
+        wrap(fullPath, component) {
+            let wrapper
+            if (component) {
+                const wrapperName = this.$route.name;
+                if (wrapperMap.has(wrapperName)) {
+                    wrapper = wrapperMap.get(wrapperName);
+                } else {
+                    wrapper = {
+                        name: wrapperName,
+                        render() {
+                            return h(component);
+                        },
+                    };
+                    wrapperMap.set(wrapperName, wrapper);
+                }
+                return h(wrapper);
+            }
+        },
         checkPlugin(route) {
             let pluginIdList = publicSetting.value.APP_PLUGINID || [];
             let name = route.name;
@@ -423,6 +460,7 @@ export default {
                     this.defaultOpeneds.push(el.path);
                 }
             });
+            this.defaultOpeneds = Object.assign([], this.defaultOpeneds, topDefaultUnfold.value);
         },
         openSetting() {
             this.settingDialog = true;
@@ -484,3 +522,30 @@ export default {
     },
 };
 </script>
+<style lang="scss" scoped>
+// .adminui-header-center {
+//     width: calc(100% - 560px);
+// }
+.scrollbar-flex-content {
+    display: flex;
+}
+.scrollbar-demo-item {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center; 
+    text-align: center;
+    cursor: pointer;
+    height: 58px;
+    padding: 0 15px;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.6);
+    &.active {
+        background: rgba(255, 255, 255, 0.1);
+        color: #fff;
+    }
+    &:hover {
+        color: #fff;
+    }
+}
+</style>

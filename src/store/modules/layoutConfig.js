@@ -15,12 +15,30 @@ const floamtRoute = (el, isTopNav) => {
             newRoute.path = "/web/custom-page/iframe" + '/' + el.guid + (isTopNav ? '/' + 'topNav' : '');
             newRoute.component = "custom-page/iframe";
         }
+    } else if (el.type == 5) {
+
+        newRoute.path = "/web/custom-page/dashboard/" + el.chartId + (isTopNav ? '/' + el.guid : '');
+        newRoute.component = "custom-page/dashboard";
     } else {
-        newRoute.path = "/web/custom-page/" +  getCustomPageComponent(el.outLink) +(isTopNav ? '/' + el.guid : '');
+        newRoute.path = "/web/custom-page/" + getCustomPageComponent(el.outLink) + setPathQuery(el.outLink) + (isTopNav ? '/' + el.guid : '');
         newRoute.component = "custom-page/" + getCustomPageComponent(el.outLink);
     }
     newRoute.name = el.guid + (isTopNav ? new Date().getTime() : '')
     return newRoute
+}
+
+const setPathQuery = (outLink) => {
+    if (outLink.indexOf('?') == -1) {
+        return ""
+    } else {
+        let query = "";
+        let queryGroup = outLink.split('?')[1].split("&")
+        queryGroup.forEach(el => {
+            let param = el.split("=");
+            query += "/" + param[1];
+        })
+        return query;
+    }
 }
 
 // 获取自定义页签组件
@@ -39,8 +57,8 @@ const getCustomPageQuery = (outLink) => {
         return null
     } else {
         let query = {};
-        let quaryGroup = outLink.split('?')[1].split("&")
-        quaryGroup.forEach(el => {
+        let queryGroup = outLink.split('?')[1].split("&")
+        queryGroup.forEach(el => {
             let param = el.split("=");
             query[param[0]] = param[1];
         })
@@ -130,13 +148,20 @@ const useLayoutConfigStore = defineStore('layoutConfig', () => {
             let initMenu = {
                 meta: {},
             };
+            // 如果是实体列表 且 使用了自定义列表模板
+            if(el.type == 1 && el.useCustom){
+                el.type = 3;
+                el.outLink = el.useComponent + "?entity=" + el.entityName;
+            }
             initMenu.meta.title = el.name;
             initMenu.meta.entityCode = el.entityCode;
             initMenu.meta.entityName = el.entityName;
             initMenu.meta.isOpeneds = el.isOpeneds;
             initMenu.meta.icon = el.useIcon || 'set-up';
             initMenu.meta.iconColor = el.iconColor || "";
-            initMenu.meta.hidden = el.entityCode && !tool.checkRole('r' + el.entityCode + '-1') && el.entityCode != "parentMenu" && el.type == 1;
+            // let checkCode = el.detailEntityFlag ? el.mainEntityCode : el.entityCode;
+            // initMenu.meta.hidden = el.entityCode && !tool.checkRole('r' +checkCode + '-1') && el.entityCode != "parentMenu" && el.type == 1;
+            initMenu.meta.hidden = checkAuth(el);
             initMenu.meta.outLink = el.outLink;
             if (el.children && el.children.length > 0) {
                 initMenu.children = [];
@@ -151,25 +176,41 @@ const useLayoutConfigStore = defineStore('layoutConfig', () => {
                             entityName: subEl.entityName,
                             icon: subEl.useIcon || 'set-up',
                             iconColor: subEl.iconColor || '',
-                            // hidden: subEl.entityCode && !tool.checkRole('r' + subEl.entityCode + '-1'),
                             outLink: subEl.outLink,
                         },
                     }
-
+                    // 如果是实体列表 且 使用了自定义列表模板
+                    if(subEl.type == 1 && subEl.useCustom){
+                        subEl.type = 3;
+                        subEl.outLink = subEl.useComponent + "?entity=" + subEl.entityName
+                    }
                     let { path, component, name } = floamtRoute(subEl, isTopNav);
                     subRoute.path = path;
                     subRoute.component = component;
                     subRoute.name = name;
+                    if (subEl.type == 5) {
+                        subRoute.meta.type = 3;
+                        subRoute.meta.query = {
+                            default: subEl.chartId
+                        }
+                    }
+                    if (subEl.type == 3) {
+                        subRoute.meta.type = 3
+                        subRoute.meta.query = getCustomPageQuery(subEl.outLink);
+                    }
                     // 如果是审批中心页面直接跳过权限判断
-                    let approvalCenter = ["approvalHandle",
+                    let approvalCenter = [
+                        "approvalHandle",
                         "approvalSubmit",
-                        "capprovalCc"];
+                        "capprovalCc"
+                    ];
                     if (approvalCenter.includes(subEl.entityCode)) {
                         initMenu.children.push(subRoute);
                         return
                     }
+                    // let checkSubCode = subEl.detailEntityFlag ? subEl.mainEntityCode : subEl.entityCode;
                     // 有权限才push
-                    if (!(subEl.entityCode && !tool.checkRole('r' + subEl.entityCode + '-1'))) {
+                    if (!checkAuth(subEl)) {
                         initMenu.children.push(subRoute);
                     }
                 });
@@ -188,6 +229,15 @@ const useLayoutConfigStore = defineStore('layoutConfig', () => {
                 initMenu.meta.type = 3
                 initMenu.meta.query = getCustomPageQuery(el.outLink);
             }
+            if (el.type == 5) {
+                initMenu.meta.type = 3;
+                initMenu.meta.query = {
+                    default: el.chartId
+                }
+            }
+            if(el.isOpeneds){
+                topDefaultUnfold.value.push(initMenu.path);
+            }
             formatRoutrs.push(initMenu);
         });
         return formatRoutrs
@@ -196,17 +246,58 @@ const useLayoutConfigStore = defineStore('layoutConfig', () => {
     const getUseMenuList = () => {
         return [...useMenuList.value]
     }
+     // 检测是否有权限
+     const checkAuth = (item) => {
+        let isHidden = false;
+        // console.log(tool.checkRole('r1023-3'),'检测是否有权限')
+        // 1 如果有实体CODE
+        // 2 并且没有权限
+        // 3 并且不是父菜单
+        // 4 并且类型为1 关联项 4 内置实体
+        let checkCode = item.detailEntityFlag ? item.mainEntityCode : item.entityCode;
+        if(item.entityCode && !tool.checkRole('r' + checkCode + '-1') && item.entityCode != "parentMenu" && (item.type == 1 || item.type == 4)){
+            isHidden = true;
+        }
+        // 1 如果有自定义CODE
+        // 2 并且没有权限
+        // 3 并且不是父菜单
+        // 4 并且类型是2、3、5  外部地址、自定义页面、仪表盘
+        if(item.customCode && !tool.checkRole(item.customCode.trim()) && item.entityCode != "parentMenu" && (item.type == 2 || item.type == 3 || item.type == 5)){
+            isHidden = true;
+        }
+        // 1 如果是自定义列表 
+        if(item.useCustom && item.entityCode && !tool.checkRole('r' + checkCode + '-1') && item.entityCode != "parentMenu" && item.type == 3){
+            isHidden = true;
+        }
+        return isHidden;
+    }
     /**
      * 顶部导航相关
      */
     // 顶部导航数据
     let topNavigation = ref({});
     let topNavMenuList = ref([]);
+    // 顶部导航默认选中数据
+    let topDefaultUnfold = ref([]);
     // 设置顶部导航数据
     const setTopNavigation = (data) => {
+        // let 
         let formatConfig = data.config ? JSON.parse(data.config) : {};
-        topNavigation.value = { ...data };
         let navList = formatConfig.navList ? JSON.parse(JSON.stringify(formatConfig.navList)) : [];
+        topNavigation.value = { ...data };
+        // 如果没有顶部导航配置权限
+        if(!tool.checkRole('r6007')){
+            // 取所有导航ID
+            let getAllNavId = navigationList.value.map(el => el.layoutConfigId);
+            let newList = [];
+            // 遍历顶部导航，把自定义导航和存在于所有导航里的导航给取出来
+            navList.forEach(el => {
+                if(el.type != 1 || getAllNavId.includes(el.layoutConfigId)){
+                    newList.push(el)
+                }
+            })
+            navList = JSON.parse(JSON.stringify(newList));
+        }
         topNavigation.value.navList = JSON.parse(JSON.stringify(navList))
         topNavMenuList.value = navList;
         topNavMenuList.value.forEach(el => {
@@ -251,7 +342,8 @@ const useLayoutConfigStore = defineStore('layoutConfig', () => {
         getUseMenuList,
         setTopNavigation,
         getTopNavigation,
-        getTopNavMenuList
+        getTopNavMenuList,
+        topDefaultUnfold,
     }
 })
 

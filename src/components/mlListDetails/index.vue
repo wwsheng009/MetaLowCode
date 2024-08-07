@@ -38,6 +38,7 @@
                         <v-form-render
                             v-if="haveLayoutJson"
                             :option-data="optionData"
+                            :global-dsv="globalDsv"
                             ref="vFormRef"
                         />
                     </div>
@@ -129,6 +130,7 @@ const closeDialog = () => {
 let haveLayoutJson = ref(false);
 let vFormRef = ref();
 let optionData = ref({});
+let globalDsv = ref({});
 // 刷新数据
 const refresh = async () => {
     loading.value = true;
@@ -136,6 +138,8 @@ const refresh = async () => {
     let res = await getFormLayout(detailDialog.entityName);
     if (res) {
         if (res.data?.layoutJson && activeTabName.value == "detail") {
+			globalDsv.value.formStatus = "read";
+			globalDsv.value.formEntityId = detailDialog.id;
             haveLayoutJson.value = true;
             optionData.value = res.data.optionData || {};
             // 根据数据渲染出页面填入的值，填过
@@ -143,15 +147,19 @@ const refresh = async () => {
                 let formData = await queryById(detailDialog.id);
                 vFormRef.value.setFormJson(res.data.layoutJson);
                 if (formData) {
+                    globalDsv.value.rowRecordData = formData.data;
                     detailDialog.formData = formData.data;
                     if (props.titleFromApi) {
                         detailDialog.title = formData.data[props.titleFromApi];
                     }
-                    vFormRef.value.setFormData(detailDialog.formData);
                     nextTick(() => {
-                        vFormRef.value.reloadOptionData();
-                        vFormRef.value.setReadMode();
-                    });
+                        vFormRef.value.setFormData(detailDialog.formData);
+                        nextTick(() => {
+                            vFormRef.value.reloadOptionData();
+                            vFormRef.value.setReadMode();
+                        });
+                    })
+                   
                 }
                 loading.value = false;
             });
@@ -193,7 +201,7 @@ defineExpose({
     }
 }
 .detail-main {
-    padding: 20px;
+    // padding: 20px;
     font-size: 14px;
 }
 </style>

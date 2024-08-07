@@ -1,5 +1,5 @@
 /**
- * 全局代码错误捕捉
+ * 全局代码错误捕捉 错误拦截 异常拦截
  * 比如 null.length 就会被捕捉到
  */
 
@@ -19,10 +19,9 @@ export default (error, vm)=>{
 		URIError: "URI错误"
 	}
     console.warn(`[ML error]: ${error}`);
-	console.error(error);
+	console.error(error); 
+	console.log(error); 
 	var errorName = errorMap[error.name] || "未知错误"
-
-	
 	//throw error;
 
 	vm.$nextTick(() => {

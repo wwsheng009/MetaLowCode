@@ -93,6 +93,11 @@ const props = defineProps({
     modelValue: null,
     entityCode: { type: Number },
     layoutConfig: { type: Object, default: () => {} },
+    // 实体模块名称
+    modelName: {
+        type: String,
+        default: "",
+    },
 });
 
 const emits = defineEmits(["update:modelValue", "confirm"]);
@@ -126,6 +131,10 @@ watch(
     { deep: true }
 );
 onMounted(() => {
+    document.body.ondrop = function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    };
     isShow.value = props.modelValue;
     // 加载字段
     loadFields();
@@ -281,7 +290,8 @@ const onSave = async () => {
     let res = await layoutConfig.saveConfig(
         layoutConfigId.value,
         "TREE_GROUP",
-        param
+        param,
+        props.modelName
     );
     if (res) {
         ElMessage.success("保存成功");
@@ -356,7 +366,7 @@ div {
 .action-icon {
     position: absolute;
     right: 10px;
-    top: -6px;
+    top: 10px;
     display: none;
     .icon-span {
         cursor: pointer;

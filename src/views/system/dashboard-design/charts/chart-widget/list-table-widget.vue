@@ -1,6 +1,10 @@
 
 <template>
-    <div class="pivot-table-widget" @click.stop="setSelected">
+    <div 
+        class="pivot-table-widget"
+        @click.stop="setSelected"
+        :class="cutField?.options?.customClass"
+    >
         <div class="table-box" v-if="tableColumn.length > 0" v-loading="tableLoading">
             <el-table
                 size="small"
@@ -24,8 +28,14 @@
                     <template #header>
                         <div class="yichu">{{ column.alias }}</div>
                     </template>
-                    <template #default="scope">
+                    <!-- <template #default="scope">
                         <div class="yichu">{{ scope.row[column.fieldName] }}</div>
+                    </template> -->
+                    <template #default="scope">
+                        <FormatRow
+                            :row="scope.row"
+                            :column="column"
+                        />
                     </template>
                 </el-table-column>
             </el-table>
@@ -42,6 +52,9 @@ import { onMounted, reactive, ref, watch } from "vue";
 import useCommonStore from "@/store/modules/common";
 import { storeToRefs } from "pinia";
 import { getDataList } from "@/api/crud";
+
+import FormatRow from '@/components/simpleTable/FormatRow.vue';
+
 const { allEntityName } = storeToRefs(useCommonStore());
 
 defineOptions({
@@ -75,13 +88,12 @@ const initOption = () => {
     let { options } = cutField.value;
     if (options) {
         let { showFields } = options.setDimensional;
-
         tableColumn.value = [...showFields];
-
         if (tableColumn.value.length > 0) {
             fieldsList.value = tableColumn.value.map((el) => el.fieldName);
             sortFields.value = [];
             tableColumn.value.forEach((el) => {
+                el.prop = el.fieldName;
                 if (el.sort) {
                     sortFields.value.push({
                         fieldName: el.fieldName,

@@ -9,8 +9,9 @@
         :filterItems="filterItems"
         queryUrl="/note/listQuery"
         equation="AND"
+        ref="mlSingleListRefs"
     >
-        <template #addbutton>
+        <template #addButton>
             <el-button type="primary" @click="markAllRead">全部设为已读</el-button>
         </template>
         <template #activeRow>
@@ -43,6 +44,7 @@ import useCommonStore from "@/store/modules/common";
 import useCheckStatusStore from "@/store/modules/checkStatus";
 import mlApprove from "@/components/mlApprove/index.vue";
 import http from "@/utils/request";
+import { ElMessage } from "element-plus";
 const { unSystemEntityList } = storeToRefs(useCommonStore());
 const { newMsgNum } = storeToRefs(useCheckStatusStore());
 const { setNewMsgNum } = useCheckStatusStore();
@@ -71,14 +73,14 @@ let tableColumn = ref([
         label: "消息",
     },
     {
-        prop: "relatedRecord.name",
+        prop: "relatedRecord",
         label: "相关记录",
         formatter: (row) => {
             return row.relatedRecord?.name;
         },
     },
     {
-        prop: "fromUser.name",
+        prop: "fromUser",
         label: "发送人",
         width: "120",
         align: "center",
@@ -107,7 +109,7 @@ let tableColumn = ref([
     {
         prop: "createdOn",
         label: "创建时间",
-        width: "120",
+        width: "160",
         align: "center",
         formatter: (row) => {
             return $fromNow(row.createdOn);
@@ -132,10 +134,11 @@ let approvalName = ref("");
 const activeRow = (item) => {
     // 审批
     if (item.type == 10) {
-        approveDialogIsShow.value = true;
-        approvalTaskId.value = item.relatedRecord.id;
-        entityId.value = item.relatedRecord.id;
-        approvalName.value = item.relatedRecord.name;
+        router.push("/web/center-handle");
+        // approveDialogIsShow.value = true;
+        // approvalTaskId.value = item.relatedRecord.id;
+        // entityId.value = item.relatedRecord.id;
+        // approvalName.value = item.relatedRecord.name;
     }
     // 审批抄送
     else if (item.type == 11) {
@@ -165,10 +168,18 @@ const markRead = (item) => {
     http.post("/note/read?id=" + item.notificationId);
 };
 
+
+let mlSingleListRefs = ref();
+
 //标记全部已读
-const markAllRead = () => {
-    http.post("/note/readAll");
-    setNewMsgNum(0);
+const markAllRead = async () => {
+    let res = await http.post("/note/readAll");
+    if(res){
+        setNewMsgNum(0);
+        mlSingleListRefs.value.getTableList();
+        ElMessage.success("设置成功")
+    }
+    
 };
 </script>
 <style>

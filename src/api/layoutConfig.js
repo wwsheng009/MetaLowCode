@@ -1,7 +1,9 @@
 import http from "@/utils/request"
+import { getModelName } from "@/utils/util";
 export default {
     // 添加布局配置
-    saveConfig: async (recordId, applyType, formModel) => {
+    saveConfig: async (recordId, applyType, formModel, modelName) => {
+        formModel.modelName = modelName || getModelName();
         return http.post('/layout/saveConfig', formModel, {
             params: { recordId, applyType },
         })
@@ -23,8 +25,9 @@ export default {
         })
     },
     // 获取实体布局配置
-    getLayoutList: async (entityName) => {
-        return await http.get("/layout/getLayoutList", { entityName });
+    getLayoutList: async (entityName, newModelName) => {
+        let modelName = newModelName || getModelName();
+        return await http.get("/layout/getLayoutList", { entityName, modelName });
     },
     // 数据导出
     excelDataExcel: async (formModel) => {
@@ -34,4 +37,9 @@ export default {
     getNavigationById: async (layoutConfigId) => {
         return await http.get("/layout/getNavigationById", { layoutConfigId });
     }
+}
+
+
+export function checkTables(body, recordId) {
+    return http.post('/layout/checkTables', body, { params: { recordId } })
 }

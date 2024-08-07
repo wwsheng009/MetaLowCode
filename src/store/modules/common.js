@@ -15,7 +15,7 @@ const useCommonStore = defineStore('commonStore', () => {
     let processEntityList = ref([]);
     // 系统配置
     let publicSetting = ref({
-        webVer: "1.3.34 20240319"
+        webVer: "1.5.147 20240806"
     });
     const getEntityList = () => {
         return new Promise(async (resolve, reject) => {
@@ -41,17 +41,25 @@ const useCommonStore = defineStore('commonStore', () => {
             }
         })
     }
+    // 根据ID查实体名称
     const queryEntityNameById = (id) => {
         return allEntityName[parseInt(id.split('-')[0])];
     }
+    // 根据ID查实体Code
     const queryEntityCodeById = (id) => {
         return parseInt(id.split('-')[0]);
     }
-    const queryEntityNameByLabel = (name) => {
+    // 根据实体名称查实体label
+    const queryEntityLabelByName = (name) => {
         return allEntityLabel[allEntityCode[name]];
     }
+    // 根据code查实体名称
     const queryEntityNameByCode = (code) => {
         return allEntityName[code];
+    }
+    // 根据名称查实体Code
+    const queryEntityCodeByName = (name) => {
+        return allEntityCode[name];
     }
     const setPublicSetting = (data) => {
         publicSetting.value.APP_NAME = data.appName;
@@ -96,8 +104,9 @@ const useCommonStore = defineStore('commonStore', () => {
         allEntityCode,
         queryEntityNameById,
         queryEntityCodeById,
-        queryEntityNameByLabel,
+        queryEntityLabelByName,
         queryEntityNameByCode,
+        queryEntityCodeByName,
         publicSetting,
         setPublicSetting,
         setUserInfo

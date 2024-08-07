@@ -7,6 +7,7 @@
         draggable
         :showFullSceen="styleConf?.actionConf.showFullScreen"
         :autoFullScreen="styleConf?.actionConf.autoFullScreen"
+        append-to-body
     >
         <div class="main fullsceen-man" v-loading="loading">
             <div class="info-box" v-if="row.detailId && row.approvalStatus.value == 3">记录已完成审批，禁止编辑</div>
@@ -19,35 +20,92 @@
             />
             <el-empty v-else :image-size="100" description="未查询到相关配置数据" />
         </div>
-        <template #footer>
-            <el-button @click="isShow = false" :loading="loading">取消</el-button>
+        <template #footer v-if="editParamConf.showFooter">
+            <slot name="beforeCancelBtn"></slot>
+            <el-button 
+                @click="cancel" 
+                :loading="loading"
+                v-if="editParamConf.showCancelBtn"
+            >
+                取消
+            </el-button>
+            <slot name="beforeConfirmBtn"></slot>
             <el-button
                 type="primary"
                 @click="confirm"
-                v-if="!row.detailId || (row.approvalStatus.value != 1 && row.approvalStatus.value != 3)"
+                v-if="editParamConf.showConfirmBtn && (!row.detailId || (row.approvalStatus.value != 1 && row.approvalStatus.value != 3))"
                 :loading="loading"
-            >确认</el-button>
+                icon="Select"
+            >
+                保存
+            </el-button>
+            <slot name="beforeConfirmRefreshBtn"></slot>
+            <el-button
+                type="primary"
+                @click="confirmRefresh"
+                v-if="editParamConf.showConfirmRefreshBtn && (!row.detailId || (row.approvalStatus.value != 1 && row.approvalStatus.value != 3))"
+                :loading="loading"
+                plain
+                icon="Refresh"
+            >
+                保存并刷新
+            </el-button>
+            <slot name="afterConfirmRefreshBtn"></slot>
         </template>
     </ml-dialog>
 </template>
 
 <script setup>
-import { reactive, ref, inject, nextTick, onMounted, watch } from "vue";
+defineOptions({
+    name: "default-edit",
+});
+import { 
+    reactive, 
+    ref, 
+    inject, 
+    nextTick, 
+    onMounted,
+    watch,
+    watchEffect,
+} from "vue";
 import { getFormLayout, getFieldListOfEntity } from "@/api/system-manager";
 import { queryById, saveRecord } from "@/api/crud";
 import { saveTeam } from "@/api/team";
 import { saveUser, checkRight } from "@/api/user";
 import useCommonStore from "@/store/modules/common";
 import { ElMessage } from "element-plus";
-const { queryEntityNameById, queryEntityNameByLabel } = useCommonStore();
-const emits = defineEmits(["onConfirm"]);
+const { queryEntityNameById, queryEntityLabelByName } = useCommonStore();
+
 const props = defineProps({
     isTeam: { type: Boolean, default: false },
     isUser: { type: Boolean, default: false },
     disableWidgets: { type: Array, default: () => [] },
     nameFieldName: { type: String, default: "" },
     layoutConfig: { type: Object, default: () => {} },
+    // 新建编辑配置
+    editConf: {
+        type: Object,
+        default: () => {}
+    },
 });
+
+const emits = defineEmits(['saveFinishCallBack']);
+
+
+// Api：https://www.yuque.com/xieqi-nzpdn/as7g0w/kon80ysuog88r0um?singleDoc# 《自定义实体新建编辑PC》
+// 配置项
+const editParamConf = ref({
+    showFooter: true,
+    showConfirmBtn: true,
+    showCancelBtn: true,
+    showConfirmRefreshBtn: true,
+})
+
+
+watchEffect(() => {
+    editParamConf.value = Object.assign(editParamConf.value, props.editConf)
+})
+
 
 // 整体配置信息
 let myLayoutConfig = ref({});
@@ -71,6 +129,7 @@ watch(
     }
 );
 
+
 // 加载配置信息
 const loadMyLayoutConfig = () => {
     myLayoutConfig.value = props.layoutConfig || {};
@@ -81,27 +140,50 @@ const loadMyLayoutConfig = () => {
 };
 
 let row = reactive({
+    dialogTitle:"",
     approvalStatus: {},
     detailId: "",
     entityName: "",
     fieldName: "",
     fieldNameLabel: "",
     fieldNameVale: "",
+    idFieldName:"",
+    formEntityId:"",
+    mainDetailField:"",
+    isRead: false,
+    detailEntityFlag: true,
+    refEntityBindingField: "",
 });
 const globalDsv = ref({});
 globalDsv.value.uploadServer = import.meta.env.VITE_APP_BASE_API;
 let optionData = ref({});
 let loading = ref(false);
 let isShow = ref(false);
+// 是否引用组件调用保存
+let isReferenceComp = ref(false);
+// 引用组件的表单数据
+let referenceCompFormData = ref({});
 const openDialog = async (v) => {
     row.dialogTitle = "Loading...";
     row.detailId = v.detailId;
+    row.formEntityId = v.formEntityId;
+    row.mainDetailField = v.mainDetailField;
     row.entityName = v.detailId
         ? queryEntityNameById(v.detailId)
         : v.entityName;
     row.fieldName = v.fieldName;
+    row.isRead = v.isRead;
     row.fieldNameLabel = v.fieldNameLabel;
     row.fieldNameVale = v.fieldNameVale;
+    row.idFieldName = v.idFieldName;
+    row.detailEntityFlag = v.detailEntityFlag;
+    row.refEntityBindingField = v.refEntityBindingField;
+    globalDsv.value = Object.assign(globalDsv.value, v.localDsv);
+    isReferenceComp.value = v.isReferenceComp;
+    // 如果是引用组件调用，有引用组件表单数据
+    if(isReferenceComp.value){
+        referenceCompFormData.value = v.formData;
+    }
     let param = {
         id: v.detailId,
         // 2新建 3更新
@@ -132,6 +214,8 @@ let haveLayoutJson = ref(false);
 const initFormLayout = async () => {
     loading.value = true;
     globalDsv.value.formEntity = row.entityName;
+    globalDsv.value.formEntityIdFieldName = row.idFieldName;
+    globalDsv.value.setRowRecordId = setRowRecordId;
     let res = await getFormLayout(row.entityName);
     if (res) {
         if (res.data?.layoutJson) {
@@ -155,25 +239,33 @@ const initFormLayout = async () => {
             if (row.detailId) {
                 // 根据数据渲染出页面填入的值，填过
                 nextTick(async () => {
-                    let formData = await queryById(row.detailId);
-                    vFormRef.value.setFormJson(res.data.layoutJson);
+					globalDsv.value.formStatus = 'edit';
+					globalDsv.value.formEntityId = row.detailId;
+					let formData = await queryById(row.detailId);
+					vFormRef.value?.setFormJson(res.data.layoutJson);
                     if (formData && formData.data) {
                         row.dialogTitle =
                             "编辑" + formData.data[props.nameFieldName];
                         row.approvalStatus = formData.data.approvalStatus || {};
-                        vFormRef.value.setFormData(formData.data);
-
+                        globalDsv.value.rowRecordData = formData.data;
                         nextTick(() => {
-                            vFormRef.value.reloadOptionData();
-                            if (
-                                row.approvalStatus.value == 1 ||
-                                row.approvalStatus.value == 3
-                            ) {
-                                vFormRef.value.disableForm();
-                                return;
-                            }
+							vFormRef.value.setFormData(formData.data);
+                            nextTick(() => {
+                                vFormRef.value.reloadOptionData();
+                                if (
+                                    row.approvalStatus.value == 1 ||
+                                    row.approvalStatus.value == 3 ||
+                                    row.isRead
+                                ) {
+                                    vFormRef.value.disableForm();
+                                    return;
+                                }
+                                if(row.refEntityBindingField && !row.detailEntityFlag){
+                                    vFormRef.value.disableWidgets([row.refEntityBindingField]);
+                                }
 
-                            getFieldListOfEntityApi("updatable");
+                                getFieldListOfEntityApi("updatable");
+                            })
                         });
                     }
                     loading.value = false;
@@ -183,9 +275,10 @@ const initFormLayout = async () => {
             else {
                 nextTick(async () => {
                     row.dialogTitle =
-                        "新建" + queryEntityNameByLabel(row.entityName);
+                        "新建" + queryEntityLabelByName(row.entityName);
+					globalDsv.value.formStatus = 'new';
+                    globalDsv.value.formEntityId = "";
                     vFormRef.value.setFormJson(res.data.layoutJson);
-                    // if(row.fieldName){}
                     let param = {};
                     if (row.fieldName) {
                         param[row.fieldName] = {
@@ -193,15 +286,26 @@ const initFormLayout = async () => {
                             name: row.fieldNameLabel,
                         };
                     }
-                    vFormRef.value.setFormData(param);
-                    nextTick(() => {
-                        if (row.fieldName) {
-                            vFormRef.value.disableWidgets([row.fieldName]);
+                    if(isReferenceComp.value && !row.detailEntityFlag){
+                        param[row.refEntityBindingField] = {
+                            id: row.formEntityId,
+                            name: row.formEntityId,
                         }
-                        vFormRef.value.reloadOptionData();
-                        // 获取字段是否禁用
-                        getFieldListOfEntityApi("creatable");
-                    });
+                    }
+					nextTick(() => {
+						vFormRef.value.setFormData(param);
+						nextTick(() => {
+							if (row.fieldName) {
+								vFormRef.value.disableWidgets([row.fieldName]);
+							}
+                            if(isReferenceComp.value && !row.detailEntityFlag){
+                                vFormRef.value.disableWidgets([row.refEntityBindingField]);
+                            }
+							vFormRef.value.reloadOptionData();
+							// 获取字段是否禁用
+							getFieldListOfEntityApi("creatable");
+						});
+					});
                 });
             }
         }
@@ -237,11 +341,17 @@ const getFieldListOfEntityApi = async (tag) => {
  *
  */
 // 保存
-const confirm = async () => {
+const confirm = async (target) => {
     if (!vFormRef.value) {
         isShow.value = false;
         return;
     }
+    let listSubForm = [];
+    vFormRef.value.getContainerWidgets().forEach(el => {
+        if(el.type == 'list-sub-form'){
+            listSubForm.push(el.name);
+        }
+    })
     vFormRef.value
         .getFormData()
         .then(async (formData) => {
@@ -252,44 +362,125 @@ const confirm = async () => {
                 };
             }
             if (formData) {
+                listSubForm.forEach(el => {
+                    delete formData[el];
+                })
                 loading.value = true;
                 let saveRes;
-                if (props.isTeam) {
-                    saveRes = await saveTeam(
-                        row.entityName,
-                        row.detailId,
-                        formData
-                    );
-                } else if (props.isUser) {
-                    saveRes = await saveUser(
-                        row.entityName,
-                        row.detailId,
-                        formData
-                    );
-                } else {
+                if(isReferenceComp.value){
+                    let { referenceCompName, referenceCompEntity } = referenceCompFormData.value;
+                    delete referenceCompFormData.value.referenceCompName
+                    delete referenceCompFormData.value.referenceCompEntity
+                    let saveFormData = row.formEntityId ? cloneDeep(formData) : referenceCompFormData.value;
+                    referenceCompFormData.value[referenceCompName] = [cloneDeep(formData)];
+                    if(row.formEntityId){
+                        saveFormData[row.detailEntityFlag ? row.mainDetailField : row.refEntityBindingField] = row.formEntityId;
+                    }
                     saveRes = await saveRecord(
-                        row.entityName,
+                        row.formEntityId ? row.entityName : referenceCompEntity,
                         row.detailId,
-                        formData
+                        saveFormData,
                     );
+                }else {
+                    if (props.isTeam) {
+                        saveRes = await saveTeam(
+                            row.entityName,
+                            row.detailId,
+                            formData
+                        );
+                    } else if (props.isUser) {
+                        saveRes = await saveUser(
+                            row.entityName,
+                            row.detailId,
+                            formData
+                        );
+                    } else {
+                        saveRes = await saveRecord(
+                            row.entityName,
+                            row.detailId,
+                            formData
+                        );
+                    }
                 }
                 if (
                     saveRes &&
                     (saveRes.data?.code == 200 || saveRes.code == 200)
                 ) {
                     ElMessage.success("保存成功");
-                    emits("onConfirm");
-                    isShow.value = false;
+                    let resData = saveRes.data.formData || {};
+                    resData.needCb = false;
+                    if(isReferenceComp.value && !row.formEntityId){
+                        resData.needCb = true;
+                    }
+                    emits("saveFinishCallBack", resData);
+                    
+                    if(target != 'notCloseDialog'){
+                        isShow.value = false;
+                    }else {
+                        row.detailId = resData[row.idFieldName];
+                        initFormLayout()
+                    }
                 }
                 loading.value = false;
             }
         })
-        .catch(() => {
+        .catch((err) => {
+            console.log(err,'err')
             ElMessage.error("表单校验失败，请修改后重新提交");
         });
 };
+
+const cloneDeep = (data) => {
+    return JSON.parse(JSON.stringify(data));
+}
+
+
+/**
+ * 导出方法
+ */
+
+const confirmRefresh = () => {
+    confirm('notCloseDialog')
+}
+
+// 列表子表单回调所需
+const setRowRecordId = (id) => {
+    row.detailId = id;
+}
+
+const refresh = () => {
+    emits("saveFinishCallBack", {});
+}
+
+const cancel = () => {
+    isShow.value = false
+}
+
+const getCurEntityName = () => {
+    return row.entityName
+}
+
+const getFormRef = () => {
+    return vFormRef?.value
+}
+
+const getGlobalDsv = () => {
+    return globalDsv.value
+}
+
+const getRecordId = () => {
+    return row.detailId
+}
+
 defineExpose({
     openDialog,
+    confirm,
+    refresh,
+    cancel,
+    getCurEntityName,
+    getFormRef,
+    getGlobalDsv,
+    getRecordId,
 });
 </script>
 <style lang='scss' scoped>

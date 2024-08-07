@@ -44,18 +44,28 @@
                                     >
                                         <el-switch v-model="confData[item.key]" disabled />
                                     </el-tooltip>
-                                    <el-switch v-else v-model="confData[item.key]" />
+                                    <el-switch v-else @change="openStatusChange(item)" v-model="confData[item.key]" />
                                 </div>
                                 <!-- 颜色选择器 -->
                                 <div v-else-if="item.type == 'picker'">
                                     <el-color-picker v-model="confData[item.key]" />
                                 </div>
-                                <!-- 用户选择框 -->
-                                <div v-else-if="item.type == 'mlSelectUser'">
+                                <!-- 钉钉集成用户选择框 -->
+                                <div v-else-if="item.type == 'mlSelectUser' && item.key == 'nodeRole'">
                                     <mlSelectUser
                                         type="Role"
                                         v-model="confData.nodeRole"
                                         clearable
+                                        :disabled="!confData.dingTalkOpen"
+                                    />
+                                </div>
+                                 <!-- 企业微信集成用户选择框 -->
+                                 <div v-else-if="item.type == 'mlSelectUser' && item.key == 'wxWorkNodeRole'">
+                                    <mlSelectUser
+                                        type="Role"
+                                        v-model="confData.wxWorkNodeRole"
+                                        clearable
+                                        :disabled="!confData.wxWorkOpen"
                                     />
                                 </div>
                                 <!-- 数字类型输入框 -->
@@ -96,6 +106,39 @@
                                         @click="autoSync"
                                     >
                                         <el-icon v-if="!autoSyncLoading">
+                                            <ElIconRefresh />
+                                        </el-icon>
+                                        <span class="ml-2">立即同步</span>
+                                    </el-button>
+                                </div>
+                                <!-- 立即同步 -->
+                                <div v-else-if="item.type == 'autoSync2'">
+                                    <el-tooltip
+                                        popper-class="conmon-tooltip"
+                                        effect="dark"
+                                        :content="errorMessage2 || 'error'"
+                                        placement="top"
+                                        v-if="errorMessage2"
+                                        style="width: 300px;"
+                                    >
+                                        <el-button
+                                            :loading="autoSyncLoading2"
+                                            :disabled="isDisabled(card,item)"
+                                            @click="autoSync2"
+                                        >
+                                            <el-icon v-if="!autoSyncLoading2">
+                                                <ElIconRefresh />
+                                            </el-icon>
+                                            <span class="ml-2">同步失败</span>
+                                        </el-button>
+                                    </el-tooltip>
+                                    <el-button
+                                        v-else
+                                        :loading="autoSyncLoading2"
+                                        :disabled="isDisabled(card,item)"
+                                        @click="autoSync2"
+                                    >
+                                        <el-icon v-if="!autoSyncLoading2">
                                             <ElIconRefresh />
                                         </el-icon>
                                         <span class="ml-2">立即同步</span>
@@ -155,6 +198,7 @@ import {
     getSettingInfo,
     updateSysSetting,
     getDingtalkSyncUser,
+    getWxWorkSyncUser,
     getHeavyTask,
 } from "@/api/setting";
 import commonConfig from "@/config/commonConfig";
@@ -186,12 +230,13 @@ let activeName = ref("common");
 let confData = reactive({
     nodeRole: [],
     homeDir: "",
+    wxWorkNodeRole:[],
 });
 // 加载状态
 let loading = ref(false);
 
 // 需要版本控制的
-let needAuthentication = ref(["dingTalkOpen"]);
+let needAuthentication = ref(["dingTalkOpen","wxWorkOpen"]);
 
 /**
  * *************************************** 初始化数据
@@ -211,6 +256,16 @@ let dingTalkFields = ref([
     "nodeDep",
 ]);
 
+// 企业微信字段
+let wxWorkFields = ref([
+    "wxWorkCorpId",
+    "wxWorkAgentId",
+    "wxWorkCorpSecret",
+    "nodeDep2",
+]);
+
+
+
 const initData = async () => {
     confList.value = commonConfig.map((el) => {
         if (el.code == "authLicense" && publicSetting.value.appMode == "prod") {
@@ -224,11 +279,32 @@ const initData = async () => {
         let resData = res.data ? res.data : {};
         confData = Object.assign(confData, resData);
         confData.webVer = publicSetting.value.webVer;
-        let { emailSetting, smsSetting, cloudStorageSetting, dingTalkSetting } =
+        let { 
+            emailSetting, 
+            smsSetting, 
+            cloudStorageSetting, 
+            dingTalkSetting,
+            wxWorkSetting
+         } =
             confData;
 
+        if(!emailSetting){
+            emailSetting = {};
+        }
+        if(!smsSetting){
+            smsSetting = {};
+        }
+        if(!cloudStorageSetting){
+            cloudStorageSetting = {};
+        }
+        if(!dingTalkSetting){
+            dingTalkSetting = {};
+        }
+        if(!wxWorkSetting){
+            wxWorkSetting = {};
+        }
         // 格式化短信
-        confData.smsOpen = smsSetting.openStatus;
+        confData.smsOpen = smsSetting?.openStatus;
         for (const key in smsSetting) {
             if (Object.hasOwnProperty.call(smsSetting, key)) {
                 const element = smsSetting[key];
@@ -236,7 +312,7 @@ const initData = async () => {
             }
         }
         // 格式化邮箱
-        confData.emailOpen = emailSetting.openStatus;
+        confData.emailOpen = emailSetting?.openStatus;
         for (const key in emailSetting) {
             if (Object.hasOwnProperty.call(emailSetting, key)) {
                 const element = emailSetting[key];
@@ -245,7 +321,7 @@ const initData = async () => {
         }
 
         // 格式化云存储
-        confData.cloudStorageOpen = cloudStorageSetting.openStatus;
+        confData.cloudStorageOpen = cloudStorageSetting?.openStatus;
         for (const key in cloudStorageSetting) {
             if (Object.hasOwnProperty.call(cloudStorageSetting, key)) {
                 const element = cloudStorageSetting[key];
@@ -254,7 +330,7 @@ const initData = async () => {
         }
 
         // 格式化钉钉集成
-        confData.dingTalkOpen = dingTalkSetting.openStatus;
+        confData.dingTalkOpen = dingTalkSetting?.openStatus;
         for (const key in dingTalkSetting) {
             if (Object.hasOwnProperty.call(dingTalkSetting, key)) {
                 const element = dingTalkSetting[key];
@@ -264,13 +340,31 @@ const initData = async () => {
                 }
             }
         }
+        // 格式化企业微信集成
+        confData.wxWorkOpen = wxWorkSetting?.openStatus;
+        for (const key in wxWorkSetting) {
+            if (Object.hasOwnProperty.call(wxWorkSetting, key)) {
+                const element = wxWorkSetting[key];
+                if (key == "nodeRole" ) {
+                    if(!element || element.length < 1){
+                        confData.wxWorkNodeRole = [];
+                    }else {
+                        confData.wxWorkNodeRole = Object.assign([],element);
+                    }
+                }else {
+                    confData[key] = element;
+                }
+            }
+        }
 
         // 初始化LOGO
         if (!confData.logo) {
             confData.logo = "/src/assets/imgs/logo.png";
         }
-        // 初始化应用首页地址
+        // 初始化钉钉集成 应用首页地址
         confData.homeDir = confData.homeURL + "/dingTalk/userLogin";
+        // 初始化企业微信 应用首页地址
+        confData.wxWorkHomeDir = confData.homeURL + "/wxWork/userLogin";
         // 备份周期
         confData.backupCycle = confData.backupCycle * 1 || 1;
         // 初始化备份保留时间
@@ -320,6 +414,14 @@ const isDisabled = (card, item) => {
         card.code == "dingTalkIntegration" &&
         !confData.dingTalkOpen &&
         dingTalkFields.value.includes(item.key)
+    ) {
+        return true;
+    }
+    // 如果是企业微信集成 且 没有开启企业微信服务
+    if (
+        card.code == "wxWorkIntegration" &&
+        !confData.wxWorkOpen &&
+        wxWorkFields.value.includes(item.key)
     ) {
         return true;
     }
@@ -390,18 +492,32 @@ const onSubmit = async () => {
             }
         }
     }
-    // 重新赋值云存储开关
+    // 重新赋值钉钉集成开关
     confData.dingTalkSetting.openStatus = confData.dingTalkOpen;
 
+    // 如果企业微信集成是开启的
+    if (confData.wxWorkOpen) {
+        for (const key in confData.wxWorkSetting) {
+            if (Object.hasOwnProperty.call(confData.wxWorkSetting, key)) {
+                confData.wxWorkSetting[key] = confData[key];
+            }
+        }
+        confData.wxWorkSetting.nodeRole = confData.wxWorkNodeRole;
+    }
+    if(!confData.wxWorkSetting){
+        confData.wxWorkSetting = {};
+    }
+    // 重新赋值企业微信集成开关
+    confData.wxWorkSetting.openStatus = confData.wxWorkOpen;
+    loading.value = true;;
     let res = await updateSysSetting(confData);
     if (res) {
         ElMessage.success("保存成功");
         nextTick(() => {
             location.reload();
         });
-    } else {
-        loading.value = false;
-    }
+    } 
+    loading.value = false;
 };
 
 // 错误类型
@@ -440,7 +556,8 @@ const checkOnSave = () => {
                 !smsFields.value.includes(subEl.key) &&
                 !emailFields.value.includes(subEl.key) &&
                 !cloudStorageFields.value.includes(subEl.key) &&
-                !dingTalkFields.value.includes(subEl.key)
+                !dingTalkFields.value.includes(subEl.key) &&
+                !wxWorkFields.value.includes(subEl.key)
             ) {
                 subEl.isError = true;
                 activeName.value = el.code;
@@ -488,6 +605,7 @@ const checkOnSave = () => {
                 subEl.required &&
                 !confData[subEl.key] &&
                 dingTalkFields.value.includes(subEl.key) &&
+                wxWorkFields.value.includes(subEl.key) &&
                 confData.dingTalkOpen
             ) {
                 subEl.isError = true;
@@ -523,10 +641,14 @@ const getLogoUrl = (item) => {
 /**
  * ***************************** 自动同步
  */
+
+// 钉钉同步
 let autoSyncLoading = ref(false);
 let cutTaskId = ref();
 let isFinish = ref(false);
 let errorMessage = ref("");
+
+
 const autoSync = async () => {
     autoSyncLoading.value = true;
     let defaultRole = confData.nodeRole[0] ? confData.nodeRole[0].id : null;
@@ -562,21 +684,62 @@ const getHeavyTaskApi = async () => {
     }
 };
 
+
+// 企业微信同步
+let autoSyncLoading2 = ref(false);
+let cutTaskId2 = ref();
+let isFinish2 = ref(false);
+let errorMessage2 = ref("");
+
+const autoSync2 = async () => {
+    autoSyncLoading2.value = true;
+    let defaultRole = confData.wxWorkNodeRole[0] ? confData.wxWorkNodeRole[0].id : null;
+    let res = await getWxWorkSyncUser(defaultRole);
+    if (res && res.data) {
+        cutTaskId2.value = res.data;
+        getHeavyTaskApi2();
+    } else {
+        autoSyncLoading2.value = false;
+    }
+};
+
+const getHeavyTaskApi2 = async () => {
+    let taskRes2 = await getHeavyTask(cutTaskId2.value);
+    if (taskRes2 && taskRes2.data) {
+        isFinish2.value = taskRes2.data.finish;
+        errorMessage2.value = taskRes2.data.errorMessage;
+        if (!isFinish2.value) {
+            setTimeout(() => {
+                getHeavyTaskApi2();
+            }, 5000);
+        }
+    } else {
+        autoSyncLoading2.value = true;
+    }
+    if (isFinish2.value) {
+        autoSyncLoading2.value = false;
+        if (errorMessage2.value) {
+            ElMessage.error("同步失败");
+        } else {
+            ElMessage.success("同步成功");
+        }
+    }
+};
+
+// 
+
+// 启用服务
+const openStatusChange = (item) => {
+    // console.log(item,'item')
+    // // 如果是开启钉钉
+    // if(item.key == 'dingTalkOpen'){
+        
+    // }
+}
+
 // 页签显示
 const showTab = (code) => {
     return code != "authLicense" || publicSetting.value.appMode != "prod";
-    // 非授权许可直接显示
-    // if (code != "authLicense") {
-    //     return true;
-    // }
-    // // 如果是授权许可
-    // else {
-    //     if (publicSetting.value.appMode != "prod") {
-    //         return true;
-    //     }else {
-
-    //     }
-    // }
 };
 </script>
 <style lang='scss' scoped>

@@ -80,6 +80,13 @@ const routes = [
                     },
                 ]
             },
+            // 数据导入
+            {
+                path: '/web/data-upload2',
+                name: 'DataUpload2',
+                meta: { title: '数据导入', role: 'r6011', hidden: true },
+                component: 'system/data-upload/index',
+            },
             // 账号信息
             {
                 "name": "userCenter",
@@ -349,6 +356,21 @@ const routes = [
                         meta: { title: '数据库备份', icon: 'el-icon-Collection', role: 'r6014' },
                         component: 'system/data-base/backups',
                     },
+                    // 数据转化
+                    {
+						path: '/web/data-transformation',
+						name: 'DataTransformation',
+						component: 'system/data-transformation/index',
+						meta: { title: '数据转化', icon: 'el-icon-Cpu', role: 'r58-1' },
+					},
+                    // 数据转化-详情
+                    {
+						path: '/web/data-transformation/:recordId',
+						name: 'DataTransformationDetail',
+						component: 'system/data-transformation/Detail/Index',
+						meta: { title: '数据转化-详情', hidden: true},
+					}
+
                 ]
             },
 

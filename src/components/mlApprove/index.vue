@@ -64,7 +64,7 @@
                                     @command="handleCommand"
                                     v-if="approvalTask.transferApproval || approvalTask.addSignaturesApproval"
                                 >
-                                    <span class="el-dropdown-link">
+                                    <span class="el-dropdown-link" style="position: relative;top: -1px">
                                         <el-icon class="el-icon--right">
                                             <ElIconMoreFilled />
                                         </el-icon>
@@ -84,9 +84,9 @@
                                         </el-dropdown-menu>
                                     </template>
                                 </el-dropdown>
-                                <el-button type="primary" @click="beforeConfirmApprove">同意</el-button>
-                                <el-button type="danger" @click="beforeReject">驳回</el-button>
-                                <el-button @click="canner">取消</el-button>
+                                <el-button type="primary" @click="beforeConfirmApprove" style="min-width: 60px !important;">同意</el-button>
+                                <el-button type="danger" @click="beforeReject" style="min-width: 60px !important;">驳回</el-button>
+                                <el-button @click="canner" style="min-width: 60px !important;">取消</el-button>
                             </div>
                         </el-form-item>
                     </el-form>
@@ -241,7 +241,7 @@ const vFormRef = ref();
 let haveLayoutJson = ref(false);
 let optionData = ref({});
 let formData = reactive({});
-let globalDsv = reactive({});
+let globalDsv = ref({});
 // 初始化自定义表单
 const initFormLayout = async () => {
     loading.value = true;
@@ -250,6 +250,8 @@ const initFormLayout = async () => {
     );
     if (res) {
         if (res.data?.layoutJson) {
+			globalDsv.value.formStatus = "approval";
+			globalDsv.value.formEntityId = props.entityId;
             haveLayoutJson.value = true;
             optionData.value = res.data.optionData || {};
             // // 根据数据渲染出页面填入的值，填过
@@ -257,24 +259,33 @@ const initFormLayout = async () => {
                 let formData = await queryById(props.entityId);
                 vFormRef.value.setFormJson(res.data.layoutJson);
                 if (formData) {
-                    vFormRef.value.setFormData(formData.data);
-                    nextTick(() => {
-                        vFormRef.value.reloadOptionData();
-                        vFormRef.value.disableForm();
-                        // 显示可编辑字段
-                        let enableWidgets =
-                            approvalTask.value.modifiableFields.map(
-                                (el) => el.name
-                            );
-                        vFormRef.value.enableWidgets(enableWidgets);
-                        // 显示可编辑的字段。即使设置了隐藏。
-                        vFormRef.value.showWidgets(enableWidgets);
-                        // 显示必填字段
-                        let required = approvalTask.value.modifiableFields.map(
-                            (el) => (el.isRequired ? el.name : null)
-                        );
-                        vFormRef.value.setWidgetsRequired(required, true);
-                    });
+                    globalDsv.value.rowRecordData = formData.data;
+                    nextTick(()=>{
+                        vFormRef.value.setFormData(formData.data);
+                        nextTick(() => {
+                            vFormRef.value.reloadOptionData();
+                            vFormRef.value.disableForm();
+                            nextTick(() => {
+                                // 显示可编辑字段
+                                let enableWidgets =
+                                    approvalTask.value.modifiableFields.map(
+                                        (el) => el.name
+                                    );
+                                vFormRef.value.enableWidgets(enableWidgets);
+                                
+                                // 显示可编辑的字段。即使设置了隐藏。
+                                vFormRef.value.showWidgets(enableWidgets);
+                                // 显示必填字段
+                                let required = approvalTask.value.modifiableFields.map(
+                                    (el) => (el.isRequired ? el.name : null)
+                                );
+                                vFormRef.value.setWidgetsRequired(required, true);
+                            })
+                        
+                        });
+                    })
+                    
+                    
                 }
                 loading.value = false;
             });
@@ -493,6 +504,7 @@ const saveComplexFlow = async (dealWithType) => {
             copyUserList: form.value.currentCCToUserList,
             nextUserIds: form.value.nextApprovalUserList,
             targetKey: dealWithType == 3 ? rejectNode.value : "",
+            signatureImage: esignConf.value.resultImg,
         },
         // 转审 或者 加签
         nodeRoleList:
@@ -539,7 +551,7 @@ const saveComplexFlow = async (dealWithType) => {
     }
 }
 .detail-main {
-    padding: 20px;
+    // padding: 20px;
     font-size: 14px;
 }
 .icon {

@@ -10,7 +10,7 @@
         :filterItems="filterItems"
         @highlightClick="highlightClick"
     >
-        <template #addbutton>
+        <template #addButton>
             <el-button type="primary" @click="addClick" :disabled="!$TOOL.checkRole('r24-3')">
                 <el-icon size="14">
                     <ElIconPlus />
@@ -47,7 +47,7 @@
             </el-table-column>
         </template>
     </mlSingleList>
-    <Edit ref="editRefs" @onConfirm="onRefresh" isTeam nameFieldName="teamName"/>
+    <mlCustomEdit ref="editRefs" @saveFinishCallBack="onRefresh" isTeam nameFieldName="teamName"/>
     <!-- 列表详情 -->
     <ListDetail
         ref="mlListDetailsRefs"
@@ -61,7 +61,7 @@
 import { ref, inject } from "vue";
 import { $fromNow } from "@/utils/util";
 import { ElMessageBox, ElMessage } from "element-plus";
-import Edit from "@/views/customize-menu/edit.vue";
+import mlCustomEdit from '@/components/mlCustomEdit/index.vue';
 import ListDetail from "./components/ListDetail.vue";
 import { delTeam } from "@/api/team";
 const $TOOL = inject("$TOOL");
@@ -89,7 +89,7 @@ let tableColumn = ref([
         },
     },
     {
-        prop: "createdBy.name",
+        prop: "createdBy",
         label: "创建用户",
         formatter: (row) => {
             return row.createdBy?.name;

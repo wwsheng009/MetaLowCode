@@ -4,7 +4,7 @@
         entityName="ExternalForm"
         aciveId="externalFormId"
         fieldsList="externalFormName,entityCode,bindUsers,isDisabled,createdOn,externalFormId"
-        @goDetial="goDetial"
+        @goDetail="goDetail"
         :tableColumn="tableColumn"
         defalutSortField="createdOn"
         :filterItems="filterItems"
@@ -14,7 +14,7 @@
         checkRole="r57"
         :actionColumnWidth="320"
     >
-        <template #addbutton>
+        <template #addButton>
             <el-button
                 type="primary"
                 @click="actionBtn({target:'add'})"
@@ -74,7 +74,7 @@ let tableColumn = ref([
         prop: "isDisabled",
         label: "启用",
         align: "center",
-        customSolt: "switch",
+        customSlot: "switch",
         isNegation: true,
         width: 80,
     },
@@ -82,7 +82,7 @@ let tableColumn = ref([
         prop: "createdOn",
         label: "创建时间",
         align: "center",
-        width: 100,
+        width: 160,
         fromNow: true,
     },
 ]);
@@ -191,7 +191,7 @@ const base64ToBlob = (base64) => {
 };
 
 // 跳转详情
-const goDetial = (row) => {
+const goDetail = (row) => {
     router.push({
         path: "/web/trigger-detail",
         query: {

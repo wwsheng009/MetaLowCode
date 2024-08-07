@@ -7,7 +7,7 @@
         :tableColumn="tableColumn"
         :filterItems="pageType[type].filterItems"
         ref="mlSingleListRef"
-        @goDetial="highlightClick"
+        @goDetail="highlightClick"
         fieldName="approvalConfigId.entityCode"
         :queryUrl="'/approval/listQuery'"
         :approvalTaskType="pageType[type].value"
@@ -97,6 +97,11 @@ onBeforeMount(() => {
                     fieldName: "createdBy",
                     op: "EQ",
                     value: USER_INFO.userId,
+                },
+                {
+                    fieldName: "wfProcInsId",
+                    op: "DISTINCT",
+                    value: "ApprovalTask",
                 },
             ],
         },
@@ -211,7 +216,12 @@ function approveHistory(row) {
 let detailRefs = ref("");
 // 高亮字段点击
 const highlightClick = (item) => {
-    detailRefs.value.openDialog(item.entityId.id);
+    // 如果是待我处理
+    if(props.type == 'handle'){
+        approveRow(item);
+    }else {
+        detailRefs.value.openDialog(item.entityId.id);
+    }
 };
 </script>
 <style lang="scss">

@@ -37,6 +37,7 @@
                             <el-dropdown-item command="DateTimeWE">日期时间 / DateTime</el-dropdown-item>
                             <el-dropdown-item command="PictureWE" divided>图片 / Picture</el-dropdown-item>
                             <el-dropdown-item command="FileWE">文件 / File</el-dropdown-item>
+                            <el-dropdown-item command="LocationWE">定位 / Location</el-dropdown-item>
                             <el-dropdown-item command="ReferenceWE" divided>一对一引用 / Reference</el-dropdown-item>
                         </el-dropdown-menu>
                     </template>
@@ -85,21 +86,21 @@
     >
         <div
             class="form-layout-item"
-            v-for="(item,inx) of formLayoutDialogConf.list"
-            :key="inx"
-            @click="selectedFormLayou(inx)"
+            v-for="(item, idx) of formLayoutDialogConf.list"
+            :key="idx"
+            @click="selectedFormLayout(idx)"
         >
             <div
                 class="form-layout-item-name yichu fl"
                 :title="item.layoutName"
             >{{ item.layoutName }}</div>
             <div class="form-layout-item-icon fl">
-                <span class="form-layout-item-edit" @click.stop="editActionFormLayout(inx)">
+                <span class="form-layout-item-edit" @click.stop="editActionFormLayout(idx)">
                     <el-icon size="18">
                         <ElIconEdit />
                     </el-icon>
                 </span>
-                <span class="form-layout-item-del" @click.stop="delActionFormLayout(inx)">
+                <span class="form-layout-item-del" @click.stop="delActionFormLayout(idx)">
                     <el-icon size="18">
                         <ElIconDelete />
                     </el-icon>
@@ -147,7 +148,6 @@ import { formFieldMapping } from "@/views/system/form-design/formFieldMapping";
 import BooleanWE from "@/views/system/field-editor/boolean-widget-editor.vue";
 import IntegerWE from "@/views/system/field-editor/integer-widget-editor.vue";
 import DecimalWE from "@/views/system/field-editor/decimal-widget-editor.vue";
-import PercentWE from "@/views/system/field-editor/percent-widget-editor.vue";
 import MoneyWE from "@/views/system/field-editor/money-widget-editor.vue";
 import TextWE from "@/views/system/field-editor/text-widget-editor.vue";
 import EmailWE from "@/views/system/field-editor/email-widget-editor.vue";
@@ -161,11 +161,11 @@ import DateWE from "@/views/system/field-editor/date-widget-editor.vue";
 import DateTimeWE from "@/views/system/field-editor/datetime-widget-editor.vue";
 import PictureWE from "@/views/system/field-editor/picture-widget-editor.vue";
 import FileWE from "@/views/system/field-editor/file-widget-editor.vue";
+import LocationWE from "@/views/system/field-editor/location-widget-editor.vue";
 import ReferenceWE from "@/views/system/field-editor/reference-widget-editor.vue";
 import AnyReferenceWE from "@/views/system/field-editor/anyreference-widget-editor.vue";
 import ReferenceListWE from "@/views/system/field-editor/referencelist-widget-editor.vue";
 import MlShareTo from "@/components/mlShareTo/index.vue";
-//const visualDesign = import.meta.glob('@/../lib/visual-design/designer.umd.js')
 import { mlShortcutkeys } from "@/utils/util";
 export default {
     name: "form-design",
@@ -186,6 +186,7 @@ export default {
         DateTimeWE,
         PictureWE,
         FileWE,
+		LocationWE,
         ReferenceWE,
         AnyReferenceWE,
         ReferenceListWE,
@@ -264,9 +265,11 @@ export default {
                     if (res.data.fieldList) {
                         this.fieldListData.fieldList = res.data.fieldList;
                         if (res.data.subFormList) {
-                            this.fieldListData.subFormList =
-                                res.data.subFormList;
+                            this.fieldListData.subFormList = res.data.subFormList;
                         }
+						if (res.data.referenceFormList) {
+							this.fieldListData.referenceFormList = res.data.referenceFormList;
+						}
                         this.meteFieldsResult = res;
                         const metaFields = this.buildMetaFields(
                             this.meteFieldsResult
@@ -358,7 +361,7 @@ export default {
                                 return;
                             }
 
-                            if (this.usedFieldNames.hasOwnProperty(fld.name)) {
+                            if (this.usedFieldNames.hasOwnProperty(fld.detailEntity + '.' + fld.name)) {
                                 return; //跳过本次循环
                             }
 
@@ -379,6 +382,7 @@ export default {
                             fieldSchema.nameReadonly = true;
                             fieldSchema.options.name = fld.name;
                             fieldSchema.options.label = fld.label;
+                            fieldSchema.subFormName = fld.detailEntity;
                             this.adjustFieldSchema(fieldSchema, fld, mdResult);
                             detailDataItem.fieldList.push(fieldSchema);
                         }
@@ -420,6 +424,13 @@ export default {
             }
             // 处理图片、文件上传字段 -- 结束
 
+			/* 处理文本、长文本字段 */
+			if (fldObj.type === "Text" || fldObj.type === "TextArea") {
+				fieldSchema.options.maxLength = !fldObj.maxLength
+					? fieldSchema.options.maxLength
+					: fldObj.maxLength * 1;
+			}
+
             /* 处理精度小数字段 */
             if (
                 fldObj.type === "Integer" ||
@@ -452,37 +463,56 @@ export default {
                     !fldObj.searchDialogWidth
                         ? fieldSchema.options.searchDialogWidth
                         : fldObj.searchDialogWidth;
+
+				fieldSchema.refUserFlag = !!fldObj.refUserFlag
+				fieldSchema.refDepartmentFlag = !!fldObj.refDepartmentFlag
             }
 
+			/* 处理单选项字段 */
             if (fieldSchema.options.hasOwnProperty("optionItems")) {
-                if (
-                    this.formOptionData.hasOwnProperty(fieldSchema.options.name)
-                ) {
-                    fieldSchema.options.optionItems = deepClone(
-                        this.formOptionData[fieldSchema.options.name]
-                    );
-                }
+				let optionDataKeyName = fieldSchema.options.name
+				if (fieldSchema.subFormName) {
+					optionDataKeyName = fieldSchema.subFormName + '.' + fieldSchema.options.name
+				}
+				if (this.formOptionData.hasOwnProperty(optionDataKeyName)) {
+					fieldSchema.options.optionItems = deepClone(
+						this.formOptionData[optionDataKeyName]
+					);
+				}
 
                 if (fldObj.type === "Boolean") {
                     fieldSchema.options.optionItems = [
                         { value: true, label: "是" },
                         { value: false, label: "否" },
-                        { value: null, label: "未指定" },
                     ];
                 }
 
                 fieldSchema.optionItemsReadonly = true;
             }
 
-            if (fldObj.hasOwnProperty("required")) {
-                fieldSchema.options.required = fldObj["required"] === "1";
-            }
+			/* 设置字段必填校验 */
+			if (fldObj.hasOwnProperty("required")) {
+				fieldSchema.options.required = fldObj["required"] === "1";
+			}
 
-            //
+			/* 取消系统字段的必填校验 */
+			if (fieldSchema.options.name === "createdOn" || fieldSchema.options.name === "createdBy"
+				|| fieldSchema.options.name === "modifiedOn" || fieldSchema.options.name === "modifiedBy"
+				|| fieldSchema.options.name === "ownerUser" || fieldSchema.options.name === "ownerDepartment"
+				|| fieldSchema.options.name === "approvalConfigId" || fieldSchema.options.name === "approvalStatus"
+				|| fieldSchema.options.name === "lastApprovedBy" || fieldSchema.options.name === "lastApprovedOn") {
+				fieldSchema.options.required = false;
+			}
+
+			//
         },
 
-        handleFWU(fwName) {
-            this.usedFieldNames[fwName] = 1;
+        handleFWU(fwName, subFormName) {
+			if (!subFormName) {
+				this.usedFieldNames[fwName] = 1;
+			} else {
+				this.usedFieldNames[subFormName + '.' + fwName] = 1;
+			}
 
             /* 必须延时处理，否则draggable会报错 */
             setTimeout(() => {
@@ -491,8 +521,12 @@ export default {
             }, 800);
         },
 
-        handleFWR(fwName) {
-            delete this.usedFieldNames[fwName];
+        handleFWR(fwName, subFormName) {
+			if (!subFormName) {
+				delete this.usedFieldNames[fwName];
+			} else {
+				delete this.usedFieldNames[subFormName + '.' + fwName];
+			}
 
             /* 必须延时处理，否则draggable会报错 */
             setTimeout(() => {
@@ -516,7 +550,11 @@ export default {
             this.usedFieldNames = {};
             const allFieldWidgets = this.$refs.vfDesigner.getFieldWidgets();
             allFieldWidgets.forEach((fwItem) => {
-                this.usedFieldNames[fwItem.name] = 1;
+				if (!fwItem.field.subFormName) {
+					this.usedFieldNames[fwItem.name] = 1;
+				} else {
+					this.usedFieldNames[fwItem.field.subFormName + '.' + fwItem.name] = 1;
+				}
             });
         },
 
@@ -541,8 +579,8 @@ export default {
         },
 
         // 选择表单
-        selectedFormLayou(inx) {
-            this.setDesign(this.formLayoutDialogConf.list[inx]);
+        selectedFormLayout(idx) {
+            this.setDesign(this.formLayoutDialogConf.list[idx]);
             this.formLayoutDialogConf.isShow = false;
         },
 
@@ -621,9 +659,6 @@ export default {
                 this.updateNameFormLayout(layoutName, shareTo);
             }
         },
-        // openSaveAsDialog() {
-        //     console.log("点击修改");
-        // },
 
         saveDesign() {
             //TODO: 检查表单设计是否符合规范！！！

@@ -228,6 +228,10 @@ export function getTagItems(entity, field) {
 	return http.get('systemManager/getTagItems', { entity, field })
 }
 
+export function queryEntityListByReferenceField(entityName, fieldName) {
+    return http.get('/systemManager/queryEntityListByReferenceField', { entityName, fieldName })
+}
+
 export function saveTagItems(entity, field, tagItems) {
 	return http.post(
 		'systemManager/saveTagItems',

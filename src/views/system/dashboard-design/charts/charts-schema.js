@@ -109,7 +109,7 @@ export const ext_charts_widgets = [
             dataEntity: "",
             // 维度指标设置
             setDimensional: {
-                dimension:[],
+                dimension: [],
                 // 指标
                 metrics: [],
                 // 目标值
@@ -165,7 +165,7 @@ export const ext_charts_widgets = [
             },
             // 图表样式
             chartStyle: 1,
-          
+
             // 图表设置
             setChartConf: {
                 // 数值显示
@@ -220,7 +220,7 @@ export const ext_charts_widgets = [
             },
             // 图表样式
             chartStyle: 1,
-          
+
             // 图表设置
             setChartConf: {
                 // 数值显示
@@ -275,7 +275,7 @@ export const ext_charts_widgets = [
             },
             // 图表样式
             chartStyle: 1,
-           
+
             // 图表设置
             setChartConf: {
                 // 数值显示
@@ -328,7 +328,7 @@ export const ext_charts_widgets = [
                 // 指标
                 metrics: [],
             },
-          
+
             // 图表设置
             setChartConf: {
                 // 数值显示
@@ -375,7 +375,7 @@ export const ext_charts_widgets = [
                 metrics: [],
             },
             chartStyle: 1,
-          
+
             // 图表设置
             setChartConf: {
                 // 数值显示
@@ -540,5 +540,41 @@ export const ext_charts_widgets = [
             h: 6,
         }
     },
+    // 快捷导航
+    {
+        type: 'quickNav',
+        icon: 'quickNav',
+        formItemFlag: false,
+        options: {
+            name: '',
+            value: 13232.12,
+            label: '快捷导航',
+            showHeader: true,
+            showHeaderss: true,
+            showFullscreen: false,
+            showRefresh: false,
+            showCollapse: false,
+            // 显示入口样式
+            setQuickNavConf: {
+                // 1 列表  2卡片
+                type: 1,
+                // 入口
+                inletList: [],
+                // 宽度
+                itemWidth: 200,
+                // 移动端宽度栅格  1 = 12   2 =24
+                itemCol:1,
+                // 边框颜色
+                borderColor:"#ddd",
+            },
+            customClass: [],
+            dsEnabled: false,
+            dsName: "",
+            x: 0,
+            y: 0,
+            w: 12,
+            h: 6,
+        }
+    }
     // ...initChaer()
 ]

@@ -300,10 +300,10 @@ body .tox-tinymce-aux {
 				color: #fafafa;
 			}
 		}
-        .full-screen-icon {
+		.full-screen-icon {
 			position: relative;
 			top: 6px;
-            margin-right: 10px;
+			margin-right: 10px;
 			cursor: pointer;
 			color: #fff;
 			&:hover {
@@ -319,6 +319,11 @@ body .tox-tinymce-aux {
 		line-height: 50px;
 		padding-right: 20px;
 	}
+    &.body-no-padding {
+        .el-dialog__body {
+			padding: 0;
+		}
+    }
 	&.not-header {
 		.el-dialog__header {
 			height: 0;
@@ -327,22 +332,29 @@ body .tox-tinymce-aux {
 			padding-top: 50px;
 		}
 	}
-    &.isFullSceen {
-        height: 100vh;
-        margin-bottom: 0;
+	&.isFullSceen {
+		height: 100vh;
+		margin-bottom: 0;
         .el-dialog__body {
-            height: calc(100vh - 120px);
-            .fullsceen-man {
-                max-height: 100%;
+            height: calc(100% - 60px);
+        }
+        &.has-footer {
+            .el-dialog__body {
+                height: calc(100% - 120px);
             }
         }
-    }
+		.el-dialog__body {
+			.fullsceen-man {
+				max-height: 100%;
+			}
+		}
+	}
 	div {
 		box-sizing: border-box;
 	}
 }
 
-.mlfield-check-box {
+.ml-field-check-box {
 	.el-checkbox {
 		align-items: normal;
 	}
@@ -452,4 +464,16 @@ body .tox-tinymce-aux {
 
 .ml-select-popper {
 	padding: 5px 0 !important;
+}
+
+.el-tree-node__content {
+	height: 32px;
+	line-height: 32px;
+}
+
+.new-message .el-drawer__body {
+    padding: 0 !important;
+}
+.new-message .el-footer {
+    padding: 13px 15px;
 }

@@ -9,9 +9,13 @@
             <div class="work-flow-conditions">
                 <div class="lable-title mb-3">审批类型</div>
                 <div class="mb-10 mt-10">
-                    <el-radio-group v-model="myFormData.approvalType">
+                    <el-radio-group 
+                        v-model="myFormData.approvalType" 
+                        @change="approvalTypeChange"
+                    >
                         <el-radio :label="1">人工审批</el-radio>
                         <el-radio :label="2">自动驳回</el-radio>
+                        <el-radio :label="3">发起子流程</el-radio>
                     </el-radio-group>
                 </div>
             </div>
@@ -161,13 +165,65 @@
                     </el-tooltip>
                 </div>
             </div>
+            <!-- 手写签名 -->
+            <div class="work-flow-conditions mt-20" v-if="myFormData.approvalType == 1">
+                <div class="lable-title mb-3">高级扩展功能</div>
+                <el-checkbox v-model="myFormData.autograph" label="手写签名"/>
+            </div>
+            <!-- 发起子流程 -->
+            <div class="work-flow-conditions mt-20" v-if="myFormData.approvalType == 3">
+                <div class="lable-title mb-3">选择子流程</div>
+                <el-select 
+                    v-model="myFormData.approvalConfigId" 
+                    style="width: 100%"
+                    v-loading="loadFlowListLoading"
+                    @change="selectedSubApproval"
+                    filterable
+                >
+                    <el-option
+                        v-for="item in flowList"
+                        :key="item.approvalConfigId"
+                        :label="item.flowName"
+                        :value="item.approvalConfigId"
+                    />
+                </el-select>
+            </div>
+            <!-- 选择数据转换 -->
+            <div class="work-flow-conditions mt-20" v-if="myFormData.approvalType == 3">
+                <div class="lable-title mb-3">选择数据转换</div>
+                <el-select 
+                    v-model="myFormData.transformId" 
+                    style="width: 100%"
+                    v-loading="loadDTLoading"
+                    :disabled="!myFormData.approvalConfigId"
+                    filterable
+                >
+                    <el-option
+                        v-for="item in formatDtOpList"
+                        :key="item.transformId"
+                        :label="item.transformName"
+                        :value="item.transformId"
+                    />
+                </el-select>
+            </div>
+            <!-- 自动提交规则 -->
+            <div class="work-flow-conditions mt-20" v-if="myFormData.approvalType == 3">
+                <div class="lable-title mb-3">自动提交规则</div>
+                <el-radio-group
+                    class="radio-need-block"
+                    v-model="myFormData.isBlocked"
+                >
+                    <el-radio :label="false">发起子流程，自动进入下一个节点</el-radio>
+                    <el-radio :label="true">发起子流程，等待审批完成后再进入下一个节点</el-radio>
+                </el-radio-group>
+            </div>
         </el-collapse-item>
         <!-- 事件设置 -->
         <el-collapse-item name="2">
             <template #title>
                 <h3>事件设置</h3>
             </template>
-			<el-tabs>
+			<el-tabs @tab-change="eventTabChange">
 				<el-tab-pane label="前置脚本">
 					<!-- 说明 -->
 					<div class="work-flow-conditions">
@@ -184,7 +240,7 @@
 					<!-- 前置脚本 -->
 					<div class="work-flow-conditions">
 						<div class="mb-10 mt-10">
-							<mlCodeEditor v-model="myFormData.createScript" mode="javascript" theme="darcula" />
+							<mlCodeEditor v-model="myFormData.createScript"/>
 						</div>
 					</div>
 				</el-tab-pane>
@@ -204,9 +260,38 @@
 					<!-- 后置脚本 -->
 					<div class="work-flow-conditions">
 						<div class="mb-10 mt-10">
-							<mlCodeEditor v-model="myFormData.completeScript" mode="javascript" theme="darcula" />
+							<mlCodeEditor v-model="myFormData.completeScript"/>
 						</div>
 					</div>
+				</el-tab-pane>
+                <el-tab-pane label="触发器事件">
+					<!-- 说明 -->
+					<div class="work-flow-conditions">
+						<div class="lable-title mb-3">说明</div>
+						<div class="mb-10 mt-10">
+							该事件在
+							<span class="ml-a-span">节点任务完成后</span> 执行，会自动执行对应触发器。
+						</div>
+					</div>
+                    <div class="lable-title mb-3">选择触发器</div>
+                    <div class="mb-10 mt-10">
+                        <el-select 
+                            v-model="myFormData.triggerConfigIdList" 
+                            style="width: 100%"
+                            v-loading="loadTCLoading"
+                            clearable
+                            filterable
+                            multiple
+                            no-data-text="未找到相关触发器"
+                        >
+                            <el-option
+                                v-for="item in triggerConfigList"
+                                :key="item.triggerConfigId"
+                                :label="item.name"
+                                :value="item.triggerConfigId"
+                            />
+                        </el-select>
+                    </div>
 				</el-tab-pane>
 			</el-tabs>
 
@@ -273,14 +358,16 @@
 </template>
 
 <script setup>
-import { ref, onMounted, inject, watch } from "vue";
+import { ref, onMounted, inject, watch, watchEffect } from "vue";
 import { useRouter } from "vue-router";
 import useCommonStore from "@/store/modules/common";
 import { storeToRefs } from "pinia";
+import { getDataList } from "@/api/crud";
 // 选择字段组件
 import mlSelectField from "@/components/mlSelectField/index.vue";
 // 代码编辑器
 import mlCodeEditor from "@/components/mlCodeEditor/index.vue";
+import http from "@/utils/request";
 
 const { allEntityName } = storeToRefs(useCommonStore());
 let $API = inject("$API");
@@ -295,6 +382,8 @@ let myFormData = ref({
     completeScript: "// Demo code",
     specificRole:[],
     modifiableFields:[],
+    isBlocked: false,
+    triggerConfigIdList:[],
 });
 let entityCode = ref("");
 let entityName = ref("");
@@ -303,8 +392,7 @@ watch(
     () => props.formData,
     (newVal,oldVal) => {
         if(JSON.stringify(newVal) !== JSON.stringify(oldVal)){
-            myFormData.value = Object.assign(myFormData.value, props.formData);
-            console.log(myFormData.value,'内部节点-watch formData')
+            initApi();
         }
     },
     { deep: true }
@@ -319,18 +407,25 @@ watch(
     { deep: true }
 );
 
+
 onMounted(() => {
     entityCode.value = Router.currentRoute.value.query.entityCode;
     if (entityCode) {
         entityName.value = allEntityName.value[entityCode.value];
     }
+    initApi();
+});
+
+// 初始化API
+const initApi = () => {
     myFormData.value = Object.assign(myFormData.value, props.formData);
-    console.log(myFormData.value,'内部节点-onMounted')
     // 获取部门负责人数据
     getDepartment();
     // 获取所有实体字段
     getEntityFields();
-});
+    // 审批类型切换
+    approvalTypeChange();
+}
 
 
 /**
@@ -487,6 +582,159 @@ const fieldRequiredChange = (field) => {
 const getFormData = () => {
     return { ...myFormData.value };
 };
+
+
+/**
+ * 选择子流程相关 beg
+ */
+
+// 加载流程loading
+let loadFlowListLoading = ref(false);
+// 流程list
+let flowList = ref([]);
+// 当前选择的子流程
+let curSelectedFlow = ref({});
+// 加载数据转换 DataTransformationLoading
+let loadDTLoading = ref(false);
+// 数据转换List DataTransformationList
+let dtList = ref([]);
+// 选择子流程后渲染的oplist
+let formatDtOpList = ref([]);
+
+// 审批类型切换
+const approvalTypeChange = async () => {
+    // 选择发起子流程才调接口
+    if(myFormData.value.approvalType == 3){
+        loadDTLoading.value = true;
+        // 加载数据转换List
+        let dtRes = await http.post("/transform/listQuery", {
+            mainEntity: 'Transform',
+            fieldsList: 'transformName, sourceEntity, targetEntity',
+            filter: {
+                equation:"AND",
+                items: [
+                    {
+                        fieldName: "disabled",
+                        op: "EQ",
+                        value: 0,
+                    },
+                    {
+                        fieldName: "isPreview",
+                        op: "EQ",
+                        value: 0,
+                    },
+                    {
+                        fieldName: "sourceEntity",
+                        op: "EQ",
+                        value: entityName.value,
+                    }
+                ]
+            },
+            pageSize: 99999,
+            pageNo: 1,
+        });
+        if(dtRes){
+            dtList.value = dtRes.data.dataList;
+
+        }
+        loadDTLoading.value = false;
+        // 加载子流程List
+        loadFlowListLoading.value = true;
+        let res = await http.post("/approval/configList", {
+            mainEntity: 'ApprovalConfig',
+            fieldsList: 'flowName, entityCode',
+            filter: {
+                equation:"AND",
+                items: [
+                    {
+                        fieldName: "flowType",
+                        op: "LK",
+                        value: 2
+                    }
+                ]
+            },
+            pageSize: 99999,
+            pageNo: 1,
+        });
+        if(res){
+            flowList.value = res.data.dataList;
+            selectedSubApproval();
+        }
+        loadFlowListLoading.value = false;
+        
+    }
+}
+
+
+const selectedSubApproval = () => {
+    let findSelectedFlow = flowList.value.filter(el => el.approvalConfigId == myFormData.value.approvalConfigId);
+    if(findSelectedFlow.length > 0){
+        curSelectedFlow.value = findSelectedFlow[0];
+        formatDtOpList.value = dtList.value.filter(el => el.targetEntity == allEntityName.value[curSelectedFlow.value.entityCode]);
+    }else {
+        curSelectedFlow.value = {};
+        formatDtOpList.value = [];
+    }
+    // 如果格式化后的数据转换是空，清空数据转换绑定字段
+    if(formatDtOpList.value.length < 1){
+        myFormData.value.transformId = "";
+        return
+    }
+    // 如果格式化后的数据有值，但是没有 数据转换绑定字段的 item 也清空 数据转换绑定字段
+    let findTransformId = formatDtOpList.value.filter(el => el.transformId == myFormData.value.transformId);
+    if(findTransformId.length < 1){
+        myFormData.value.transformId = "";
+    }
+}
+
+
+/**
+ * 选择子流程相关 end
+ */
+
+ /**
+  * 事件设置相关
+  */
+// 事件设置出发切换
+const eventTabChange = (name) => {
+    if(name == 2){
+        loadTriggerConfigList()
+    }
+}
+
+// 触发器列表
+let triggerConfigList = ref([]);
+let loadTCLoading = ref(false);
+
+let loadTriggerConfigList = async () => {
+    loadTCLoading.value = true;
+    let res = await getDataList(
+        "TriggerConfig",
+        "name",
+        {
+            equation:"AND",
+            items: [
+                {
+                    fieldName: "entityCode",
+                    op: "EQ",
+                    value: entityCode.value
+                },
+                {
+                    fieldName: "isDisabled",
+                    op: "EQ",
+                    value: 0
+                }
+            ]
+        },
+        99999,
+        1,
+    )
+    
+    if(res){
+        triggerConfigList.value = res.data.dataList;
+    }
+    loadTCLoading.value = false;
+}
 
 defineExpose({
     getFormData,

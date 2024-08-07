@@ -42,7 +42,7 @@
                             主实体与明细实体请分别导入，更多帮助请
                             <a
                                 class="ml-a-span"
-                                href="https://www.baidu.com/"
+                                href="https://melecode.com/docs/mlbook/user/user04.html#%E6%95%B0%E6%8D%AE%E5%AF%BC%E5%85%A5"
                                 target="_blank"
                             >参考文档</a>
                         </li>
@@ -135,7 +135,7 @@ const changeEntity = () => {
 // 获取当前实体所有字段
 const getEntityFields = async () => {
     loading.value = true;
-    let res = await queryEntityFields(entityCode.value, false, false, true);
+    let res = await $API.upload.queryEntityFields(entityCode.value);;
     if (res) {
         fromData.value.fields = res.data || [];
         let importFields = [];

@@ -1,137 +1,179 @@
 <template>
-    <mlDialog v-model="isShow" :title="title" width="35%">
-        <div class="timeline-div" v-loading="loading">
-            <el-timeline v-if="approveHistory.length > 0">
-                <el-timeline-item
-                    v-for="(activity, index) in approveHistory"
-                    :key="index"
-                    :type="getTimelineType(index,activity)"
-                    size="large"
-                    class="ml-timeline-item"
-                >
-                    <div class="item-row">
-                        <div
-                            class="step-name-title"
-                            v-if="!!getStepName(index,activity)"
-                        >{{ getStepName(index,activity) }}</div>
-                        <div class="item-timestamp">{{ activity.createdOn }}</div>
-                        <div class="item-content before" v-if="index == 0">
-                            <div class="item-title mb-5">由 {{ activity.stepUserName }} 提交审批</div>
-                            <div class="item-step-name">
-                                <span class="item-step-name-span" @click="goApprovalList(activity)">
-                                    <el-icon class="item-step-icon">
-                                        <ElIconCircleCheck />
-                                    </el-icon>
-                                    {{ activity.stepName }}
-                                </span>
-                            </div>
-                        </div>
-                        <div class="item-content" v-if="index != 0 && activity.state != 13">
-                            <div
-                                class="contain-div"
-                                v-if="activity.singLabel && activity.needRow > 1"
-                                :style="getContainHeight(activity)"
-                            >
-                                <span class="contain-span">{{ activity.singLabel }}</span>
-                            </div>
-                            <div class="item-title">
-                                <span
-                                    class="mr-5"
-                                    v-if="activity.state === 0"
-                                >等待 {{ activity.stepUserName }} 审批</span>
-                                <span class="mr-5" v-if="activity.state === 1">
-                                    由 {{ activity.stepUserName }} 审批同意
-                                    <el-tooltip
-                                        effect="dark"
-                                        :content="activity.remark || 'error'"
-                                        placement="top"
-                                    >
-                                        <span
-                                            style="position: relative;top: 2px;cursor: pointer;"
-                                            v-if="activity.remark"
-                                        >
-                                            <el-icon>
-                                                <ElIconQuestionFilled />
-                                            </el-icon>
-                                        </span>
-                                    </el-tooltip>
-                                </span>
-                                <span class="mr-5" v-if="activity.state === 11">
-                                    由 {{ activity.stepUserName }} 驳回
-                                    <el-tooltip
-                                        effect="dark"
-                                        :content="activity.remark || 'error'"
-                                        placement="top"
-                                    >
-                                        <span
-                                            style="position: relative;top: 2px;cursor: pointer;"
-                                            v-if="activity.remark"
-                                        >
-                                            <el-icon>
-                                                <ElIconQuestionFilled />
-                                            </el-icon>
-                                        </span>
-                                    </el-tooltip>
-                                </span>
-                                <span class="mr-5" v-if="activity.state === 12">
-                                    由 {{ activity.stepUserName }} 撤销
-                                    <el-tooltip
-                                        effect="dark"
-                                        :content="activity.remark || 'error'"
-                                        placement="top"
-                                    >
-                                        <span
-                                            style="position: relative;top: 2px;cursor: pointer;"
-                                            v-if="activity.remark"
-                                        >
-                                            <el-icon>
-                                                <ElIconQuestionFilled />
-                                            </el-icon>
-                                        </span>
-                                    </el-tooltip>
-                                </span>
-                                <span
-                                    class="ml-a-span"
-                                    v-if="activity.signatureImage"
-                                    @click="openPreview(activity.signatureImage)"
-                                >查看签名</span>
-                                <el-tag v-if="activity.operationState === 1" type="warning">转审</el-tag>
-                                <el-tag v-if="activity.operationState === 2" type="warning">加签</el-tag>
-                            </div>
-                        </div>
-                    </div>
-                </el-timeline-item>
-            </el-timeline>
-            <el-empty v-else :image-size="100" description="未查询到流程记录" />
-        </div>
-        <mlDialog
-            v-model="previewShow"
-            title="查看签名"
-            width="645"
-            appendToBody
-            :top="previewHeight == '640px' ? '7vh' : '15vh'"
+    <mlDialog 
+        v-model="isShow" 
+        :title="title" 
+        :width="isComplexWorkFlow ? '75%' : '35%'"
+        :showFullSceen="isComplexWorkFlow"
+        :bodyNoPadding="isComplexWorkFlow"
+        @fullSceenChange="fullSceenChange"
+        appendToBody
+    >
+        <div 
+            class="clearfix history-body" 
+            :class="{
+                'complex-work-flow': isComplexWorkFlow,
+                'full-sceen':fullSceen
+            }"
+            v-loading="loading"
         >
-            <div
-                class="imag-viewer-box"
-                :style="{ 'height': previewHeight, 'padding-top': previewHeight == '640px' ? '197px' : 0}"
+            <div 
+                class="approve-view-box"
+                v-if="isComplexWorkFlow"
             >
-                <div class="image-viewer" :style="{ 'transform':'rotate('+ previewRotate +'deg)'}">
-                    <img :src="previewUrl" alt="签名" />
+                <div class="deviation">
+                    <ApproveView :entityId="entityId"/>
                 </div>
             </div>
-
-            <div class="foot-btn w-100">
-                <el-button type="primary" @click="previewRotateChange">旋转</el-button>
-                <el-button type="primary" @click="previewShow = false">关闭</el-button>
+            <div class="timeline-div">
+                <el-timeline v-if="approveHistory.length > 0">
+                    <el-timeline-item
+                        v-for="(activity, index) in approveHistory"
+                        :key="index"
+                        :type="getTimelineType(index,activity)"
+                        size="large"
+                        class="ml-timeline-item"
+                    >
+                        <div class="item-row">
+                            <div
+                                class="step-name-title"
+                                v-if="!!getStepName(index,activity)"
+                            >{{ getStepName(index,activity) }}</div>
+                            <div class="item-timestamp">{{ activity.createdOn }}</div>
+                            <div class="item-content before" v-if="index == 0">
+                                <div class="item-title mb-5">由 {{ activity.stepUserName }} 提交审批</div>
+                                <div class="item-step-name">
+                                    <span class="item-step-name-span" @click="goApprovalList(activity)">
+                                        <el-icon class="item-step-icon">
+                                            <ElIconCircleCheck />
+                                        </el-icon>
+                                        {{ activity.stepName }}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="item-content" v-if="index != 0 && activity.state != 13">
+                                <div
+                                    class="contain-div"
+                                    v-if="activity.singLabel && activity.needRow > 1"
+                                    :style="getContainHeight(activity)"
+                                >
+                                    <span class="contain-span">{{ activity.singLabel }}</span>
+                                </div>
+                                <div class="item-title"  v-if="activity.subRecord?.id">
+                                    <span 
+                                        class="mr-5"
+                                    >   
+                                        等待子流程 【
+                                        <span class="ml-a-span" @click="goSubRecord(activity.subRecord?.id)">{{ activity.subRecord?.name }}</span>
+                                        】 审批 
+                                    </span>
+                                </div>
+                                <div class="item-title" v-else>
+                                    <span
+                                        class="mr-5"
+                                        v-if="activity.state === 0"
+                                    >等待 {{ activity.stepUserName }} 审批</span>
+                                    <span class="mr-5" v-if="activity.state === 1">
+                                        由 {{ activity.stepUserName }} 审批同意
+                                        <el-tooltip
+                                            effect="dark"
+                                            :content="activity.remark || 'error'"
+                                            placement="top"
+                                            v-if="activity.remark"
+                                        >
+                                            <span
+                                                style="position: relative;top: 2px;cursor: pointer;"
+                                            >
+                                                <el-icon>
+                                                    <ElIconQuestionFilled />
+                                                </el-icon>
+                                            </span>
+                                        </el-tooltip>
+                                    </span>
+                                    <span class="mr-5" v-if="activity.state === 11">
+                                        由 {{ activity.stepUserName }} 驳回
+                                        <el-tooltip
+                                            effect="dark"
+                                            :content="activity.remark || 'error'"
+                                            placement="top"
+                                            v-if="activity.remark"
+                                        >
+                                            <span
+                                                style="position: relative;top: 2px;cursor: pointer;"
+                                            >
+                                                <el-icon>
+                                                    <ElIconQuestionFilled />
+                                                </el-icon>
+                                            </span>
+                                        </el-tooltip>
+                                    </span>
+                                    <span class="mr-5" v-if="activity.state === 12">
+                                        由 {{ activity.stepUserName }} 撤销
+                                        <el-tooltip
+                                            effect="dark"
+                                            :content="activity.remark || 'error'"
+                                            placement="top"
+                                            v-if="activity.remark"
+                                        >
+                                            <span
+                                                style="position: relative;top: 2px;cursor: pointer;"
+                                            >
+                                                <el-icon>
+                                                    <ElIconQuestionFilled />
+                                                </el-icon>
+                                            </span>
+                                        </el-tooltip>
+                                    </span>
+                                    <span
+                                        class="ml-a-span"
+                                        v-if="activity.signatureImage"
+                                        @click="openPreview(activity.signatureImage)"
+                                    >查看签名</span>
+                                    <el-tag v-if="activity.operationState === 1" type="warning">转审</el-tag>
+                                    <el-tag v-if="activity.operationState === 2" type="warning">加签</el-tag>
+                                </div>
+                            </div>
+                        </div>
+                    </el-timeline-item>
+                </el-timeline>
+                <el-empty v-else :image-size="100" description="未查询到流程记录" />
             </div>
-        </mlDialog>
+        </div>
     </mlDialog>
+    <!-- 查看签名 -->
+    <mlDialog
+        v-model="previewShow"
+        title="查看签名"
+        width="685"
+        appendToBody
+        :top="previewHeight == '640px' ? '7vh' : '15vh'"
+    >
+        <div
+            class="imag-viewer-box"
+            :style="{ 'height': previewHeight, 'padding-top': previewHeight == '640px' ? '197px' : 0}"
+        >
+            <div class="image-viewer" :style="{ 'transform':'rotate('+ previewRotate +'deg)'}">
+                <img :src="previewUrl" alt="签名" />
+            </div>
+        </div>
+
+        <div class="foot-btn w-100">
+            <el-button type="primary" @click="previewRotateChange">旋转</el-button>
+            <el-button type="primary" @click="previewShow = false">关闭</el-button>
+        </div>
+    </mlDialog>
+    <!-- 查看审批流程 -->
+    <!-- <ApproveView ref="ApproveViewRefs"/> -->
+    <defaultEntityDetail ref="detailRefs" />
 </template>
 
 <script setup>
 import http from "@/utils/request";
 import { watch, ref, onMounted, inject, reactive, nextTick } from "vue";
 import { useRouter } from "vue-router";
+import ApproveView from './components/ApproveView.vue';
+// import mlCustomDetail from '@/components/mlCustomDetail/index.vue';
+import defaultEntityDetail from "@/views/customize-menu/detail.vue";
+
 const Route = useRouter();
 const props = defineProps({
     modelValue: null,
@@ -140,6 +182,8 @@ const props = defineProps({
 });
 import useCommonStore from "@/store/modules/common";
 const { queryEntityCodeById } = useCommonStore();
+
+
 const emit = defineEmits(["update:modelValue", "canner", "confirm"]);
 const signType = reactive({
     1: "会签",
@@ -148,26 +192,55 @@ const signType = reactive({
 let loading = ref(false);
 // 弹框是否显示
 let isShow = ref(null);
+
+// 是否复杂工作流
+let isComplexWorkFlow = ref(false);
+// 是否全屏
+let fullSceen = ref(false);
+
+
 watch(
     () => props.modelValue,
     () => {
-        isShow.value = props.modelValue;
+        isShow.value = props.modelValue
     },
-    { deep: true }
-);
+    {
+        deep: true
+    }
+)
+
 watch(
     () => isShow.value,
     (v) => {
-        emit("update:modelValue", v);
+        emit("update:modelValue", v)
     },
-    { deep: true }
-);
-onMounted(() => {
-    isShow.value = props.modelValue;
-    getTaskDetailsById();
-});
+    {
+        deep: true
+    }
+)
+
+onMounted(()=>{
+    isShow.value = props.modelValue
+    if(isShow.value){
+        getTaskDetailsById();
+    }
+})
 
 let approveHistory = ref([]);
+
+
+const getTaskDetailsById = async () => {
+    loading.value = true;
+    let res = await http.get("/approval/getTaskDetailsById", {
+        entityId: props.entityId
+    })
+    if(res) {
+        approveHistory.value = formatResData(res.data.approvalStepsList);
+    }
+    loading.value = false;
+}
+
+
 
 const getTimelineType = (index, activity) => {
     if (index == 0) {
@@ -209,16 +282,15 @@ function getContainHeight(item) {
     };
 }
 
-// 获取审核参数
-async function getTaskDetailsById() {
-    loading.value = true;
-    let res = await http.get("/approval/getTaskDetailsById", {
-        entityId: props.entityId,
-    });
-    if (res) {
-        approveHistory.value = formatResData(res.data);
-    }
-    loading.value = false;
+
+const openDialog = (flowType, approvalStepsList) => {
+    isComplexWorkFlow.value = flowType == 2;
+    approveHistory.value = formatResData(approvalStepsList);
+    isShow.value = true;
+    nextTick(()=>{
+        let dom = document.querySelectorAll('.timeline-div')[0];
+        dom.scrollTop = dom.scrollHeight - dom.clientHeight;
+    })
 }
 
 // 格式化数据
@@ -242,6 +314,7 @@ function formatResData(data) {
 
 // 配置流程
 const goApprovalList = (activity) => {
+    isShow.value = false;
     Route.push({
         path: "/web/custom-page/approval-detail",
         query: {
@@ -251,6 +324,8 @@ const goApprovalList = (activity) => {
             flowType: activity.flowType || 1,
         },
     });
+    emit('confirm')
+
 };
 
 /**
@@ -276,16 +351,42 @@ const previewRotateChange = () => {
     }
 };
 
+let detailRefs = ref();
+const goSubRecord = (approvalConfigId) => {
+    detailRefs.value.openDialog(approvalConfigId)
+}
+
+
+
 // 关闭弹框
 function canner() {
     isShow.value = false;
 }
+
+
+/**
+ * 查看审批流程图片
+ */
+
+let ApproveViewRefs = ref();
+
+const openApproveView = () => {
+    ApproveViewRefs.value?.openDialog();
+}
+
+
+const fullSceenChange = (v) => {
+    fullSceen.value = v;
+}
+
+defineExpose({
+    openDialog
+})
 </script>
 
 <style lang="scss" scoped>
 .timeline-div {
-    min-height: 100px;
-    max-height: 400px;
+    height: 100%;
     overflow-x: auto;
     padding: 5px;
     .ml-timeline-item {
@@ -345,15 +446,52 @@ function canner() {
 .image-viewer {
     border: 2px solid #ccc;
     margin: 0 auto;
+    box-sizing: border-box;
+    width: 640px;
+    height: 240px;
     img {
         transition: all 0.3s;
         box-sizing: border-box;
-        width: 640px;
-        height: 240px;
+        width: 100%;
+        height: 100%;
     }
 }
 .foot-btn {
     margin-top: 20px;
     text-align: right;
+}
+
+
+.history-body {
+    height: 400px;
+    
+    &.complex-work-flow {
+        height: 600px;
+        .timeline-div  {
+            padding: 20px;
+            width: 400px;
+            float: right;
+        }
+    }
+    &.full-sceen {
+        height: 100%;
+    }
+    .approve-view-box {
+        width: calc(100% - 400px);
+        float: left;
+        height: 100%;
+        overflow: hidden;
+        // 左偏移
+        $deviationLeft: -100px;
+        // 右偏移
+        $deviationTop: -140px;
+        .deviation {
+            width: calc(100% - $deviationLeft);
+            height: calc(100% - $deviationTop);
+            margin-left: $deviationLeft;
+            margin-top: $deviationTop;
+        }
+    }
+
 }
 </style>

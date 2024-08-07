@@ -6,11 +6,11 @@
             :mainEntity="tableConf.entity"
             :fieldsList="tableConf.fieldsList"
             :sortFields="tableConf.sortFields"
-            :fieldName="tableConf.roleName"
+            fieldName="roleName"
             :tableColumn="tableConf.tableColumn"
             :filterItems="tableConf.filterItems"
         >
-            <template #addbutton>
+            <template #addButton>
                 <el-button type="primary" @click="addNewRole" :disabled="!$TOOL.checkRole('r23-2')">
                     <el-icon size="14">
                         <ElIconPlus />
@@ -180,6 +180,7 @@
                                         <mlSelectCom
                                             v-model="formModel.rightValueMap['r' + rightEntity.entityCode + '-5']"
                                             :options="getRightLevels(rightEntity)"
+                                            :disabled="!rightEntity.authorizable"
                                         />
                                     </div>
                                     <div class="fl text-align-center">
@@ -280,7 +281,7 @@ let tableConf = ref({
     tableColumn: [
         {
             prop: "roleName",
-            label: "用户名称",
+            label: "角色名称",
             width: "180",
         },
         {
@@ -403,6 +404,7 @@ const queryEntity = () => {
             (el) => el.label.indexOf(filterStr.value) != -1
         );
     }
+    console.log(filterEntityList,'filterEntityList')
     setTimeout(() => {
         roleFormDialogLoading.value = false;
     }, 300);
@@ -561,6 +563,16 @@ let rowRightLevels = shallowRef([
     { label: "全部数据", value: 50 },
 ]);
 
+
+let departmentRightLevels = shallowRef([
+    { label: "无权限", value: 0 },
+    { label: "本部门", value: 20 },
+    { label: "本部门及以下", value: 30 },
+    { label: "上级部门及以下", value: 40 },
+    { label: "全部数据", value: 50 },
+]);
+
+
 let simpleRightLevels = shallowRef([
     { label: "无权限", value: 0 },
     { label: "全部数据", value: 50 },
@@ -572,6 +584,9 @@ let oneselfRightLevels = shallowRef([
 ]);
 
 const getRightLevels = (rightEntity) => {
+    if(rightEntity.name == 'Department'){
+        return departmentRightLevels.value;
+    }
     if (rightEntity.authorizable === true) {
         return rowRightLevels.value;
     } else {
@@ -585,11 +600,14 @@ const rowHandleCommand = (command, row) => {
     for (let index = 1; index < 7; index++) {
         // 新建
         if (index == 2 || !authorizable) {
-            formModel.value.rightValueMap["r" + entityCode + "-" + index] =
-                command > 0 ? 50 : 0;
-        } else {
-            formModel.value.rightValueMap["r" + entityCode + "-" + index] =
-                command;
+            formModel.value.rightValueMap["r" + entityCode + "-" + index] = command > 0 ? 50 : 0;
+        } 
+        // 分配
+        if (index == 5 && !authorizable) {
+            formModel.value.rightValueMap["r" + entityCode + "-" + index] = 0;
+        } 
+        else {
+            formModel.value.rightValueMap["r" + entityCode + "-" + index] = command;
         }
     }
 };

@@ -6,6 +6,7 @@
                 <el-radio :label="1">内部用户</el-radio>
                 <el-radio :label="2">外部人员</el-radio>
                 <el-radio :label="3" :disabled="!querySendState.dingState">钉钉机器人</el-radio>
+                <el-radio :label="4" :disabled="!querySendState.wxWorkState">企业微信机器人</el-radio>
             </el-radio-group>
             <div class="w-100 mt-5">
                 <mlSelectUser
@@ -46,6 +47,13 @@
                 clearable
             ></el-input>
         </el-form-item>
+        <el-form-item class="mt-20" label="Webhook地址" v-if="trigger.actionContent.userType == 4">
+            <el-input
+                v-model="trigger.actionContent.wxWorkRobotUrl"
+                placeholder="企业微信机器人Webhook地址"
+                clearable
+            ></el-input>
+        </el-form-item>
         <el-form-item class="mt-20" label="通知类型" v-if="trigger.actionContent.userType != 3">
             <el-checkbox-group v-model="typeSelecteds" @change="typeChange">
                 <el-checkbox
@@ -61,7 +69,9 @@
                 </el-checkbox>
             </el-checkbox-group>
         </el-form-item>
-
+        <el-form-item class="mt-0" label=" " v-if="typeSelecteds.includes(2)">
+            <span class="info-text">勾选通知后将同步发送企业微信和钉钉消息通知。</span>
+        </el-form-item>
         <el-form-item class="mt-20" v-if="typeSelecteds.includes(8)" label="邮件标题">
             <el-input v-model="trigger.actionContent.title" placeholder="你有一条新通知"></el-input>
         </el-form-item>
@@ -138,6 +148,11 @@ let typeList = ref([
         label: "钉钉",
         value: 16,
         code: "dingState",
+    },
+    {
+        label: "企业微信通知",
+        value: 32,
+        code: "wxWorkState",
     },
 ]);
 // 选中集合
@@ -240,14 +255,7 @@ const insertStr = (source, start, newStr) => {
 // 源实体所有字段
 let cutEntityFields = ref([]);
 // 通知类型是否可用
-let querySendState = reactive({
-    // 邮件是否可用
-    emailState: false,
-    // 短信是否可用
-    smsState: false,
-    // 钉钉是否可用
-    dingState:false,
-});
+let querySendState = ref({});
 // 外部人员字段
 let sendToFields = ref([]);
 const getCutEntityFields = async () => {
@@ -256,14 +264,14 @@ const getCutEntityFields = async () => {
     if (res) {
         cutEntityFields.value = res.data;
         sendToFields.value = res.data.filter((el) => el.fieldType == "Text");
-        let querySendStateRes = await $API.trigger.detial.querySendState();
-        querySendState.emailState = querySendStateRes.data?.emailState;
-        querySendState.smsState = querySendStateRes.data?.smsState;
-        querySendState.dingState = querySendStateRes.data?.dingState;
+        let querySendStateRes = await $API.trigger.detail.querySendState();
+        if(querySendStateRes){
+            querySendState.value = querySendStateRes.data;
+        }   
         // 如果是内部用户
         if (trigger.value.actionContent.userType == 1) {
             if (trigger.value.actionContent.sendTo?.length > 0) {
-                let idToIdNameRes = await $API.trigger.detial.idToIdName(
+                let idToIdNameRes = await $API.trigger.detail.idToIdName(
                     trigger.value.actionContent.sendTo
                 );
                 if (idToIdNameRes) {

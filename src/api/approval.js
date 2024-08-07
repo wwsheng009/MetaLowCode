@@ -5,7 +5,7 @@
 import http from "@/utils/request"
 
 export default {
-    detial: {
+    detail: {
         // 获取审批流程
         get: async (data) => {
             return await http.get("/approval/getFlowDefinitionByConfigId", data);
@@ -80,4 +80,21 @@ export function getComplexFlow(approvalConfigId) {
 // 驳回类为3(驳回到任意节点)时需要获取所有节点
 export function getRejectNodeList(approvalTaskId) {
     return http.get('/plugins/metaWorkFlow/workflow/returnList', { approvalTaskId })
+}
+
+// 获取审批历史流程配置
+export function getHisActivityIns(entityId) {
+    return http.get('/approval/getHisActivityIns',  { entityId })
+}
+
+// 获取审批信息
+export function getRecordApprovalState(recordId) {
+    return http.get('/approval/recordApprovalState',  { recordId })
+}
+
+
+
+// 获取审批信息
+export function createApprovalSystemFields(entityName) {
+    return http.post('/approval/createApprovalSystemFields?entityName=' + entityName)
 }

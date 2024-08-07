@@ -1,7 +1,33 @@
 import http, { request } from '@/utils/request'
 
-export function refFieldQuery(entity, field, pageNo, pageSize, queryText, extraFilter) {
-    return http.get('crud/refFieldQuery', { entity, 'refField': field, pageNo, pageSize, queryText, extraFilter });
+export function refFieldQuery(entity, field, pageNo, pageSize, queryText, extraFilter, formFilter) {
+    return http.post(
+        'crud/refFieldQuery',
+        formFilter,
+        {
+            params: { entity, 'refField': field, pageNo, pageSize, queryText, extraFilter }
+        }
+    );
+}
+
+export function saveRefFilterPanel(entity, field, filter) {
+    return http.post(
+        'crud/saveRefFilterPanel',
+        filter,
+        {
+            params: { entity, 'refField': field}
+        }
+    );
+}
+
+export function refFieldQuery2(entity, field, pageNo, pageSize, extraFilter, formFilter, formFilter2) {
+	return http.post(
+		'crud/refFieldQuery2',
+		[formFilter, formFilter2],
+		{
+			params: { entity, 'refField': field, pageNo, pageSize, extraFilter }
+		}
+	);
 }
 
 export function createRecord(entity) {
@@ -41,14 +67,16 @@ export function deleteRecords(body) {
 * @param {*} advFilter { equation="AND", items:[{  "fieldName": "flowName", "op": "LK", "value": "修改"}] }  常用查询
 * @param {*} quickFilter ""  快速查询
 * @param {*} builtInFilter ""  { equation="AND", items:[{  "fieldName": "flowName", "op": "LK", "value": "修改"}] } 参数查询
-* @param {*} filterEasySql ""  分组查询
+* @param {*} statistics ""
+* @param {*} filterEasySql ""  自定义SQL查询
+* @param {*} defaultFilter ""  默认查询
 
 */
-export function getDataList(entity, fields, filter, pageSize, pageNo, sortFields, advFilter, quickFilter, builtInFilter, statistics, filterEasySql) {
+export function getDataList(entity, fields, filter, pageSize, pageNo, sortFields, advFilter, quickFilter, builtInFilter, statistics, filterEasySql, defaultFilter) {
     return http.post('crud/listQuery', {
         'mainEntity': entity,
         'fieldsList': fields,
-        filter, pageSize, pageNo, sortFields, advFilter, quickFilter, builtInFilter, statistics, filterEasySql
+        filter, pageSize, pageNo, sortFields, advFilter, quickFilter, builtInFilter, statistics, filterEasySql, defaultFilter
     })
 }
 
@@ -84,6 +112,22 @@ export function queryById(entityId, fieldNames) {
  */
 export function queryEntityFields(entityCode, queryReference, queryReserved, firstReference) {
     return http.get('/crud/queryEntityFields', { entityCode, queryReference, queryReserved, firstReference })
+}
+
+/**
+ * 通用查询-获取实体字段
+ * @param {*} entityCodes 实体
+ * @param {*} queryReference 是否查询引用实体的字段（单引用）  true or false 默认 false
+ * @param {*} queryReserved 是否查询系统字段  true or false 默认 false
+ * @param {*} firstReference 是否查询引用字段（不包含引用实体字段）  true or false 默认 false
+ */
+export function queryEntityListFields(entityCodes, queryReference, queryReserved, firstReference) {
+    return http.post('/crud/queryEntityListFields', [...entityCodes], { params: { queryReference, queryReserved, firstReference } })
+}
+
+// 列显示
+export function queryEntityListableFields(entityCode) {
+    return http.get('/crud/queryEntityListableFields', { entityCode})
 }
 
 /**
@@ -126,4 +170,13 @@ export function groupTreeQuery(body) {
  */
 export function updateRecordList(body) {
     return http.post('/crud/updateRecordList', body)
+}
+
+
+
+
+
+// 根据 entityCode 获取关联的引用实体
+export function queryDetailEntityFields(entityName) {
+    return http.get('/crud/queryDetailEntityFields', { entityName })
 }

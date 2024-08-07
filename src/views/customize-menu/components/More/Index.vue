@@ -1,5 +1,5 @@
 <template>
-    <el-popover placement="bottom" trigger="click" :popper-style="{'padding':0}">
+    <el-popover placement="bottom" trigger="click" :popper-style="{'padding':0}" v-if="showMoreBtn">
         <div class="table-setting-item-box">
             <!-- 操作 -->
             <div class="pl-5 item div-disabled">操作</div>
@@ -19,6 +19,7 @@
                 class="pl-20 item"
                 @click="allocationFn('allocation')"
                 :class="{'div-disabled':multipleSelection.length < 1 && type == 'list'}"
+                v-if="!isReferenceComp && !isMainDetailField"
             >
                 <span class="icon-t1">
                     <el-icon>
@@ -31,6 +32,7 @@
                 class="pl-20 item"
                 @click="allocationFn('share')"
                 :class="{'div-disabled':multipleSelection.length < 1 && type == 'list'}"
+                v-if="!isReferenceComp && !isMainDetailField"
             >
                 <span class="icon-t1">
                     <el-icon>
@@ -43,6 +45,7 @@
                 class="pl-20 item"
                 @click="allocationFn('unShare')"
                 :class="{'div-disabled':multipleSelection.length < 1 && type == 'list'}"
+                v-if="!isReferenceComp && !isMainDetailField"
             >
                 <span class="icon-t1">
                     <el-icon>
@@ -50,6 +53,19 @@
                     </el-icon>
                 </span>
                 取消共享
+            </div>
+            <div 
+                class="pl-20 item" 
+                @click="openReportForms('PDF')" 
+                v-if="type == 'list'"
+                :class="{'div-disabled':multipleSelection.length < 1}"
+            >
+                <span class="icon-t1">
+                    <el-icon>
+                        <ElIconDownload />
+                    </el-icon>
+                </span>
+                导出PDF
             </div>
             <div class="pl-20 item" @click="openReportForms()" v-if="type != 'list'">
                 <span class="icon-t1">
@@ -69,23 +85,25 @@
             </div>
             <!-- 导入导出 -->
             <template v-if="type == 'list'">
-                <div class="pl-5 mt-15 item div-disabled">导入导出</div>
-                <div class="pl-20 item" @click="dataExportFn">
-                    <span class="icon-t1">
-                        <el-icon>
-                            <ElIconDownload />
-                        </el-icon>
-                    </span>
-                    数据导出
-                </div>
-                <div class="pl-20 item" @click="dataUploadFn" v-if="$TOOL.checkRole('r6011')">
-                    <span class="icon-t1">
-                        <el-icon>
-                            <ElIconUpload />
-                        </el-icon>
-                    </span>
-                    数据导入
-                </div>
+                <template v-if="!isReferenceComp">
+                    <div class="pl-5 mt-15 item div-disabled">导入导出</div>
+                    <div class="pl-20 item" @click="dataExportFn">
+                        <span class="icon-t1">
+                            <el-icon>
+                                <ElIconDownload />
+                            </el-icon>
+                        </span>
+                        数据导出
+                    </div>
+                    <div class="pl-20 item" @click="dataUploadFn" v-if="$TOOL.checkRole('r6011')">
+                        <span class="icon-t1">
+                            <el-icon>
+                                <ElIconUpload />
+                            </el-icon>
+                        </span>
+                        数据导入
+                    </div>
+                </template>
                 <!-- 列显示 -->
                 <div class="pl-5 mt-15 div-disabled">列显示</div>
                 <div
@@ -117,27 +135,35 @@
                     </div>
                 </div>
                 <!-- 列表设置 -->
-                <div class="pl-5 mt-15 div-disabled" v-if="$TOOL.checkRole('r6008')">列表设置</div>
-                <div
-                    class="pl-20 item"
-                    @click="openDefaultFilterDialog"
-                    v-if="$TOOL.checkRole('r6008')"
-                >默认查询设置</div>
-                <div
-                    class="pl-20 item"
-                    @click="treeGroupFilterIsShow = true"
-                    v-if="$TOOL.checkRole('r6008')"
-                >树状分组筛选</div>
-                <div
-                    class="pl-20 item"
-                    @click="editColumn('BATCH_UPDATE')"
-                    v-if="$TOOL.checkRole('r6008')"
-                >批量编辑设置</div>
-                <div
-                    class="pl-20 item"
-                    @click="setListStyleDialogIsShow = true"
-                    v-if="$TOOL.checkRole('r6008')"
-                >列表样式设计</div>
+                <template v-if="$TOOL.checkRole('r6008') && !isReferenceComp && !isMainDetailField">
+                    <div class="pl-5 mt-15 div-disabled">列表设置</div>
+                    <div
+                        class="pl-20 item"
+                        @click="openDefaultFilterDialog"
+                    >
+                        默认查询设置
+                    </div>
+                    <div
+                        class="pl-20 item"
+                        @click="treeGroupFilterIsShow = true"
+                    >
+                        树状分组筛选
+                    </div>
+                    <div
+                        class="pl-20 item"
+                        @click="editColumn('BATCH_UPDATE')"
+                    >
+                        批量编辑设置
+                    </div>
+                    <div
+                        class="pl-20 item"
+                        @click="setListStyleDialogIsShow = true"
+                    >
+                        其他列表设置
+                    </div>
+                </template>
+                
+                
             </template>
         </div>
         <template #reference>
@@ -155,6 +181,7 @@
         v-if="editColumnDialog.isShow"
         :editColumnDialog="editColumnDialog"
         @confirm="editColumnConfirm"
+        :modelName="modelName"
     />
     <!-- 数据导入导出 -->
     <DataExport ref="dataExportRefs" />
@@ -164,17 +191,23 @@
         :idFieldName="idFieldName"
         @allocationSuccess="allocationSuccess"
         :entityCode="entityCode"
+        :layoutConfig="myLayoutConf"
     />
     <!-- 报表 -->
     <ReportForms ref="reportFormsRefs" />
     <!-- 默认查询设置 -->
-    <DefaultFilterDialog ref="defaultFilterRefs" @defaultFilterChange="defaultFilterChange" />
+    <DefaultFilterDialog 
+        ref="defaultFilterRefs" 
+        @defaultFilterChange="defaultFilterChange"
+        :modelName="modelName"
+    />
     <!-- 树状分组筛选 -->
     <TreeGroupFilter
         :entityCode="entityCode"
         :layoutConfig="myLayoutConf"
         v-model="treeGroupFilterIsShow"
         @confirm="treeGroupFilterConfirm"
+        :modelName="modelName"
     />
     <!-- <NewTreeGroupFilter
         :entityCode="entityCode"
@@ -182,12 +215,13 @@
         v-model="treeGroupFilterIsShow"
         @confirm="treeGroupFilterConfirm"
     /> -->
-    <!-- 列表样式设计 -->
+    <!-- 其他列表设置 -->
     <SetListStyleDialog
         v-model="setListStyleDialogIsShow"
         :entityCode="entityCode"
         :layoutConfig="myLayoutConf"
         @confirm="allocationSuccess"
+        :modelName="modelName"
     />
 </template>
 
@@ -209,12 +243,13 @@ import DefaultFilterDialog from "./DefaultFilterDialog.vue";
 // 树状分组筛选设置
 import TreeGroupFilter from "./TreeGroupFilter.vue";
 import NewTreeGroupFilter from "./NewTreeGroupFilter.vue";
-// 列表样式设计
+// 其他列表设置
 import SetListStyleDialog from "./SetListStyleDialog.vue";
 
 import { checkRight } from "@/api/user";
 import { useRouter } from "vue-router";
 import useCommonStore from "@/store/modules/common";
+import { ElMessage } from "element-plus";
 const { queryEntityNameByCode } = useCommonStore();
 const router = useRouter();
 const emits = defineEmits([
@@ -237,6 +272,17 @@ const props = defineProps({
     detailId: { type: String, default: "" },
     // 默认查询设置
     defaultFilterSetting: { type: Object, default: () => {} },
+    // 是否显示按钮
+    showMoreBtn: { type: Boolean, default: true },
+    // 是否引用实体
+    isReferenceComp: { type: Boolean, default: false },
+    // 是否明细实体
+    isMainDetailField: { type: Boolean, default: false },
+    // 实体模块名称
+    modelName: {
+        type: String,
+        default: "",
+    },
 });
 
 // layout配置
@@ -320,10 +366,15 @@ const allocationSuccess = (v) => {
 
 // 打开报表
 let reportFormsRefs = ref("");
-const openReportForms = () => {
+const openReportForms = (target) => {
+    if(target == 'PDF' && props.multipleSelection.length < 1){
+        return
+    }
     reportFormsRefs.value.openDialog({
         entityCode: props.entityCode,
         detailId: props.detailId,
+        defaultShow: target == 'PDF' ? 'PDF' : 'ALL',
+        multipleSelection: props.multipleSelection.map(el => el[props.idFieldName])
     });
 };
 
@@ -347,7 +398,7 @@ const dataExportFn = () => {
 // 数据导入
 const dataUploadFn = () => {
     router.push({
-        path: "/web/data-upload",
+        path: "/web/data-upload2",
     });
 };
 
@@ -362,6 +413,10 @@ let editColumnDialog = ref({
     isShow: false,
 });
 const editColumn = (type) => {
+    if(type == 'ALL' && !$TOOL.checkRole('r6008')){
+        ElMessage.error("当前无权操作。")
+        return
+    }
     editColumnDialog.value = {};
     editColumnDialog.value.isShow = true;
     editColumnDialog.value.chosenListType = type;
@@ -426,12 +481,49 @@ const treeGroupFilterConfirm = () => {
 };
 
 /**
- * 列表样式设计
+ * 其他列表设置
  */
 let setListStyleDialogIsShow = ref(false);
 
+
+const listMoreSetting = (type) => {
+    if(!$TOOL.checkRole('r6008')){
+        ElMessage.error("当前无权操作。")
+        return
+    }
+    switch (type) {
+        // 默认查询设置
+        case "defaultFilter":
+            openDefaultFilterDialog()
+            break;
+        // 树状分组筛选
+        case "treeGroupFilter":
+            treeGroupFilterIsShow.value = true;
+            break;
+        // 批量编辑设置
+        case "batchEditing":
+            editColumn('BATCH_UPDATE')
+            break;
+        // 列表样式设置
+        case "listStyleSeting":
+            setListStyleDialogIsShow.value = true;
+            break;
+    
+        default:
+            ElMessage.error("参数错误，当前参数：" + type)
+            break;
+    }
+}
+
 defineExpose({
     editColumn,
+    allocationFn,
+    dataExportFn,
+    dataUploadFn,
+    editColumn,
+    listMoreSetting,
+    openReportForms,
+    openPrinter
 });
 </script>
 <style lang='scss' scoped>

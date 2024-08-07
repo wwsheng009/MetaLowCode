@@ -108,12 +108,17 @@ textarea {
 .adminui-header-right {
 	display: flex;
 	align-items: center;
+    min-width: 360px;
+    box-sizing: border-box;
+    padding-right: 20px;
+    justify-content: right;
 }
 .adminui-header .logo-bar {
 	font-size: 20px;
 	font-weight: bold;
 	display: flex;
 	align-items: center;
+    min-width: 190px;
 }
 .adminui-header .logo-bar .logo {
 	margin-right: 10px;
@@ -433,7 +438,7 @@ textarea {
 }
 
 .w-100 {
-	width: 100%;
+	width: 100% !important;
 }
 
 .fl {

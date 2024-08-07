@@ -52,13 +52,14 @@
             </el-row>
         </template>
     </mlListDetails>
-    <Edit
+    <mlCustomEdit
         ref="editRefs"
-        @onConfirm="onRefresh"
+        @saveFinishCallBack="onRefresh"
         :isTeam="detailEntity == 'Team'"
         :isUser="detailEntity == 'User'"
-        :nameFieldName="detailEntity == 'User' ? 'UserName' : 'TeamName'"
+        :nameFieldName="detailEntity == 'User' ? 'userName' : 'teamName'"
     />
+    
     <!-- 重置密码 -->
     <ml-dialog title="重置密码" v-model="resetPasswordDialogIsShow" appendToBody width="450px">
         <el-input v-model="newPassword" placeholder="输入密码" clearable>
@@ -77,7 +78,7 @@
 import { inject, ref } from "vue";
 import AddMembers from "./AddMembers.vue";
 import TabMemberList from "./TabMemberList.vue";
-import Edit from "@/views/customize-menu/edit.vue";
+import mlCustomEdit from '@/components/mlCustomEdit/index.vue';
 import useCommonStore from "@/store/modules/common";
 import { getTeamMembers, delTeam } from "@/api/team";
 import { deleteUserById, getUserRole } from "@/api/user";

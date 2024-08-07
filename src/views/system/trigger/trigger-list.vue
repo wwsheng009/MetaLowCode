@@ -4,7 +4,7 @@
         entityName="TriggerConfig"
         aciveId="triggerConfigId"
         fieldsList="name,entityCode,actionType,actionContent,priority,isDisabled,modifiedOn,whenNum,createdOn"
-        @goDetial="goDetial"
+        @goDetail="goDetail"
         :tableColumn="tableColumn"
         defalutSortField="createdOn"
         :filterItems="filterItems"
@@ -13,7 +13,7 @@
         @openAddDialog="openAddDialog"
         checkRole="r48"
     >
-        <template #addbutton>
+        <template #addButton>
             <el-button
                 type="primary"
                 @click="actionBtn({target:'add'})"
@@ -65,19 +65,19 @@ let tableColumn = ref([
         prop: "whenNum",
         label: "触发动作",
         align: "center",
-        customSolt: "whenNum",
+        customSlot: "whenNum",
     },
     {
         prop: "priority",
         label: "优先级",
         align: "center",
-        customSolt: "priority",
+        customSlot: "priority",
     },
     {
         prop: "isDisabled",
         label: "启用",
         align: "center",
-        customSolt: "switch",
+        customSlot: "switch",
         isNegation: true,
         width: 80,
     },
@@ -139,7 +139,7 @@ const saveProcess = async () => {
 };
 
 // 跳转详情
-const goDetial = (row) => {
+const goDetail = (row) => {
     router.push({
         path: "/web/trigger-detail",
         query: {

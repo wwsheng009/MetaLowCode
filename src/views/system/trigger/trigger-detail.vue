@@ -131,9 +131,13 @@ const initDetailData = async () => {
         if (trigger.actionType.value == 6) {
             trigger.disabledActive = [4, 16, 32, 64, 128, 256, 1024, 2048];
         }
-        // 如果是自动分配
-        if (trigger.actionType.value == 9 || trigger.actionType.value == 10) {
-            trigger.disabledActive = [4, 32, 64];
+        // 如果是自动共享
+        if (trigger.actionType.value == 9) {
+            trigger.disabledActive = [4, 64];
+        }
+         // 如果是取消共享
+         if (trigger.actionType.value == 10) {
+            trigger.disabledActive = [4, 32];
         }
         // 如果是自动分配
         if (trigger.actionType.value == 8) {
@@ -144,12 +148,7 @@ const initDetailData = async () => {
     initLoading.value = false;
 };
 
-// 返回列表
-const goTriggerList = () => {
-    router.push({
-        path: "/web/trigger-list",
-    });
-};
+
 
 // 无标题弹框
 let notTitleDialog = reactive({
@@ -157,6 +156,14 @@ let notTitleDialog = reactive({
     // 1 保存
     type: 1,
 });
+
+// 返回列表
+const goTriggerList = () => {
+    notTitleDialog.isShow = false
+    router.push({
+        path: "/web/trigger-list",
+    });
+};
 
 // 保存调用
 const onSave = async (target) => {
@@ -168,10 +175,10 @@ const onSave = async (target) => {
         defaultTargetEntity,
     } = trigger;
     // 如果是更新规则
-    if (trigger.actionType.value == 1 && actionContent.items.length < 1) {
-        $ElMessage.warning("请至少添加 1 个更新规则");
-        return;
-    }
+    // if (trigger.actionType.value == 1 && actionContent.items.length < 1) {
+    //     $ElMessage.warning("请至少添加 1 个更新规则");
+    //     return;
+    // }
     // 如果是聚合规则
     if (trigger.actionType.value == 2 && actionContent.items.length < 1) {
         $ElMessage.warning("请至少添加 1 个聚合规则");
@@ -289,8 +296,13 @@ const onSave = async (target) => {
         return;
     }
     // 如果是自动共享
-    if (trigger.actionType.value == 9 && actionContent.toUsersId.length < 1) {
+    if (trigger.actionType.value == 9 && actionContent.type == 1 && actionContent.toUsersId.length < 1) {
         $ElMessage.warning("请选择共享给谁");
+        return;
+    }
+     // 如果是自动共享
+     if (trigger.actionType.value == 9 && actionContent.type == 2 && actionContent.toUserFields.length < 1) {
+        $ElMessage.warning("请选择共享指定字段");
         return;
     }
     // 如果是自动取消共享
@@ -325,7 +337,7 @@ const onSave = async (target) => {
 
     initLoading.value = true;
 
-    let res = await $API.trigger.detial.triggerSave(
+    let res = await $API.trigger.detail.triggerSave(
         params.id,
         params.formModel
     );
@@ -351,7 +363,7 @@ const actionExecute = (params) => {
     )
         .then(async () => {
             initLoading.value = true;
-            let res = await $API.trigger.detial.execute({
+            let res = await $API.trigger.detail.execute({
                 entityCode: trigger.entityCode,
                 actionFilter: params.formModel.actionFilter || null,
                 actionContent: params.formModel.actionContent || null,

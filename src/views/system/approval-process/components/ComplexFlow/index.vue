@@ -57,6 +57,11 @@
                     :formData="drawerData.formData"
                     @setNodeData="setNodeData"
                 />
+                <ServiceTask
+                    v-if="drawerData.type == 'bpmn:serviceTask'"
+                    :formData="drawerData.formData"
+                    @setNodeData="setNodeData"
+                />
             </div>
         </div>
     </div>
@@ -72,6 +77,8 @@ import StartEvent from "./StartEvent.vue";
 import SequenceFlow from "./SequenceFlow.vue";
 // 用户任务节点
 import UserTask from "./UserTask.vue";
+// 服务任务节点
+import ServiceTask from "./ServiceTask.vue";
 
 // 公用方法
 import { checkConditionList } from "@/utils/util";
@@ -125,6 +132,11 @@ let drawer = ref(false);
 
 // 各节点默认数据
 let nodeDefaultData = reactive({
+    "bpmn:serviceTask": {
+        taskType: 1,
+        classPath: "",
+        customData: {}
+    },
     "bpmn:startEvent": {
         type: 0,
         // 谁可以发起此审批
@@ -145,7 +157,7 @@ let nodeDefaultData = reactive({
         },
     },
     "bpmn:userTask": {
-        // 审批类型(1.人工审批 2.自动驳回)
+        // 审批类型(1.人工审批 2.自动驳回 3. 发起子流程)
         approvalType: 1,
         // 由审批（3.指定审批人  4. 指定部门负责人 5. 发起人部门负责人 6.数据所属部门负责人 7. 实体字段）
         nodeRoleType: 3,
@@ -179,6 +191,14 @@ let nodeDefaultData = reactive({
         createScript: "",
         // 后置脚本
         completeScript: "",
+        // 数据转化ID
+        transformId: null,
+        // 审批配置ID
+        approvalConfigId: null,
+        // 是否阻断流程
+        isBlocked: false,
+        // 选择触发器
+        triggerConfigIdList: [],
     },
 });
 
@@ -187,7 +207,16 @@ const NodeTypeFn = {
     "bpmn:startEvent": "getNodeModelById",
     "bpmn:sequenceFlow": "getEdgeModelById",
     "bpmn:userTask": "getNodeModelById",
+    "bpmn:serviceTask": "getNodeModelById",
 };
+
+// 排除的节点
+const EliminateNode = [
+    "bpmn:parallelGateway",
+    "bpmn:endEvent",
+    "bpmn:exclusiveGateway",
+    "bpmn:inclusiveGateway",
+];
 
 // 节点删除
 const nodeDelete = () => {
@@ -197,7 +226,7 @@ const nodeDelete = () => {
 // 节点点击
 const openDrawer = (data) => {
     // 如果是网关、结束节点。不做任何处理
-    if (data.type == "bpmn:parallelGateway" || data.type == "bpmn:endEvent") {
+    if (EliminateNode.includes(data.type)) {
         return;
     }
     drawer.value = true;
@@ -209,7 +238,6 @@ const openDrawer = (data) => {
     } else {
         drawerData.value.formData = cloneDeep(nodeDefaultData[data.type]);
     }
-    console.log(drawerData.value.formData,"点击节点")
 };
 
 // 开始节点
@@ -228,7 +256,7 @@ const getProperties = (jsonStr) => {
 let setNodeData = (data) => {
     let { type, id } = drawerData.value;
     setProperties(type, id, data);
-    setNodeBorderColor(type, id, "");
+    setNodeBorderColor(type, id, "#337ecc");
 };
 
 // 设置节点自定义属性
@@ -264,9 +292,10 @@ const onSave = async () => {
     }
     let mflData = MetaFlowDesignerRef.value.getJsonData();
     let { nodes, edges } = mflData;
+    console.log(mflData,'mflData')
     // 把非结束节点的数据筛选出来
     let newNodes = nodes.filter(
-        (el) => el.type != "bpmn:endEvent" && el.type != "bpmn:parallelGateway"
+        (el) => !EliminateNode.includes(el.type)
     );
     // 遍历节点
     for (let index = 0; index < newNodes.length; index++) {
@@ -278,7 +307,6 @@ const onSave = async () => {
         } else {
             properties = getProperties(el.properties.flowJson);
         }
-        console.log(properties,'properties');
         // 如果是开始节点
         if (el.type == "bpmn:startEvent") {
             let { nodeRoleType, nodeRoleList } = properties;
@@ -292,6 +320,17 @@ const onSave = async () => {
         if (el.type == "bpmn:userTask") {
             if (!el.text) {
                 ElMessage.error("用户节点：请填写节点名称");
+                setNodeBorderColor(el.type, el.id, "red");
+                return;
+            }
+            let { approvalType, approvalConfigId, transformId } = properties;
+            if(approvalType == 3 && !approvalConfigId){
+                ElMessage.error(el.text?.value + "节点：请选择子流程");
+                setNodeBorderColor(el.type, el.id, "red");
+                return;
+            }
+            if(approvalType == 3 && !transformId){
+                ElMessage.error(el.text?.value + "节点：请选择数据转换");
                 setNodeBorderColor(el.type, el.id, "red");
                 return;
             }
@@ -324,18 +363,22 @@ const onSave = async () => {
         flowJson[el.id] = el.properties.flowJson;
     });
     formatNodes.forEach((el) => {
-        if (el.type != "bpmn:endEvent" && el.type != "bpmn:parallelGateway") {
+        if (!EliminateNode.includes(el.type)) {
             flowJson[el.id] = el.properties.flowJson;
         }
     });
-    
+    let logicFlowXml = MetaFlowDesignerRef.value.getXmlData() || '';
+    logicFlowXml = logicFlowXml.replace('<dc:Bounds x="null"','<dc:Bounds x="365"');
+    logicFlowXml = logicFlowXml.replace('width="null" height="14"','width="50" height="14"');
     let param = {
         approvalConfigId: approvalConfigId.value,
         logicFlow: {
-            logicFlowXml: MetaFlowDesignerRef.value.getXmlData(),
+            logicFlowXml,
             flowJson,
         },
     };
+    // console.log(param,'param')
+    // return
     loading.value = true;
     let res = await saveComplexFlow(param);
     if (res && res.code == 200) {
@@ -347,7 +390,9 @@ const onSave = async () => {
 // 设置节点变颜色
 const setNodeBorderColor = (type, id, stroke) => {
     MetaFlowDesignerRef.value.lf[NodeTypeFn[type]](id).setProperties({
-        stroke,
+        rectNodeNodeStyle: {
+            stroke
+        },
     });
 };
 
@@ -374,7 +419,7 @@ const cloneDeep = (data) => {
         width: 100%;
         height: 100%;
         background: rgba($color: #000000, $alpha: 0.3);
-        z-index: 6666;
+        z-index: 7;
     }
 }
 .complex-flow {

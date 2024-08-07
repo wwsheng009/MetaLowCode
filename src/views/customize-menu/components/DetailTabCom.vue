@@ -56,7 +56,7 @@
                         title="列表视图"
                         style="margin-left: 0;padding: 8px;"
                         :class="{'is-active': defaultShowType == 'table'}"
-                        @click="defaultShowType = 'table'"
+                        @click="viewTableChange"
                     >
                         <SvgIcon icon-name="grid_n" />
                     </el-button>
@@ -103,11 +103,16 @@
                 />
             </div>
             <div class="min-table mt-20" v-else>
-                <el-collapse v-model="cardActiveNames" v-if="tableData.length > 0">
+                <el-collapse 
+                    v-model="cardActiveNames" 
+                    v-if="tableData.length > 0"
+                    @change="collapseChange"
+                >
                     <el-collapse-item
                         v-for="(item,inx) of tableData"
                         :key="inx"
                         :name="item[idFieldName]"
+                        :disabled="item.loading"
                     >
                         <template #title>
                             <div class="collapse-title">
@@ -115,7 +120,13 @@
                                 <i class="header-icon el-icon-info"></i>
                             </div>
                         </template>
-                        <CardLayout :layoutJson="layoutJson" :data="item" />
+                        <CardLayout 
+                            :layoutJson="layoutJson" 
+                            :optionData="optionData"
+                            :recordId="item[idFieldName]" 
+                            :isLoadData="expandIdx.includes(item[idFieldName])"
+                            @loading="(loadingStatus) => cardLayoutLoading(loadingStatus, item)"
+                        />
                     </el-collapse-item>
                 </el-collapse>
                 <el-empty v-else :image-size="100" description="暂无数据" />
@@ -126,7 +137,7 @@
 </template>
 
 <script setup>
-import { onMounted, watch, inject, reactive, ref } from "vue";
+import { onMounted, watch, inject, reactive, ref, nextTick } from "vue";
 import { getFormLayout } from "@/api/system-manager";
 import { getDataList } from "@/api/crud";
 import { useRouter } from "vue-router";
@@ -141,6 +152,7 @@ const props = defineProps({
     entityId: { type: String, default: "" },
     tabs: { type: Object, default: () => {} },
 });
+const emits = defineEmits(['closeDialog'])
 const $API = inject("$API");
 
 watch(
@@ -278,9 +290,6 @@ const initData = async () => {
 };
 
 const goPath = () => {
-    router.push({
-        path: "/web/" + props.cutTab + "/list",
-    });
     setRouterParams({
         path: "/web/" + props.cutTab + "/list",
         filter: {
@@ -295,6 +304,13 @@ const goPath = () => {
         },
         quickFilter: quickQueryVal.value,
     });
+    nextTick(()=>{
+        router.push({
+            path: "/web/" + props.cutTab + "/list",
+        });
+    })
+    
+    emits("closeDialog")
 };
 
 // 分页
@@ -388,7 +404,9 @@ const refreshData = () => {
     getTableList();
 };
 
+
 let layoutJson = ref(null);
+let optionData = ref({});
 const getTableList = async () => {
     loading.value = true;
 
@@ -424,21 +442,43 @@ const getTableList = async () => {
     );
     if (res && res.data) {
         tableData.value = res.data.dataList;
-
-        cardActiveNames.value = tableData.value.map(
-            (el) => el[idFieldName.value]
-        );
+        tableData.value.forEach( el => {
+            el.loading = false;
+        })
+        // cardActiveNames.value = tableData.value.map(
+        //     (el) => el[idFieldName.value]
+        // );
         page.total = res.data.pagination.total;
         loading.value = true;
         let formLayoutRes = await getFormLayout(entityName.value);
         if (formLayoutRes) {
             layoutJson.value = formLayoutRes.data?.layoutJson || null;
+            optionData.value = formLayoutRes.data?.optionData || {};
         }
         loading.value = false;
     } else {
         loading.value = false;
     }
 };
+
+/**
+ * 折叠面板
+ */
+
+let expandIdx = ref([]);
+const collapseChange = (arr) => {
+    expandIdx.value = arr;
+}
+const cardLayoutLoading = (loadingStatus, item) => {
+    item.loading = loadingStatus;
+}
+
+const viewTableChange = () => {
+    defaultShowType.value = 'table';
+    cardActiveNames.value = [];
+}
+
+
 defineExpose({
     initData,
 });

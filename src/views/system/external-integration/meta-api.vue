@@ -10,7 +10,7 @@
         :filterItems="filterItems"
         @changeSwitch="changeSwitch"
     >
-        <template #addbutton>
+        <template #addButton>
             <el-button type="primary" @click="addClick">
                 <el-icon size="14">
                     <ElIconPlus />
@@ -106,7 +106,7 @@ let tableColumn = ref([
     //     prop: "isDisabled",
     //     label: "启用",
     //     align: "center",
-    //     customSolt: "switch",
+    //     customSlot: "switch",
     //     isNegation: true,
     //     width: 80,
     // },
@@ -117,7 +117,7 @@ let tableColumn = ref([
         formatter: (row) => {
             return $fromNow(row.modifiedOn);
         },
-        width: 150,
+        width: 160,
     },
     {
         prop: "createdBy.name",
@@ -126,7 +126,7 @@ let tableColumn = ref([
         formatter: (row) => {
             return row.createdBy?.name;
         },
-        width: 150,
+        width: 160,
     },
 ]);
 

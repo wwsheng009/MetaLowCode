@@ -46,7 +46,7 @@
                         <el-icon-chat-dot-round />
                     </el-icon>
                 </el-badge>
-                <el-drawer title="新消息" v-model="msg" :size="400" append-to-body destroy-on-close>
+                <el-drawer  class='new-message' title="新消息" v-model="msg" :size="400" append-to-body destroy-on-close>
                     <el-container v-loading="msgLoading">
                         <el-main class="nopadding">
                             <el-scrollbar>
@@ -279,6 +279,7 @@ const msgClick = (item, inx) => {
     let filterEntity = unSystemEntityList.value.filter(
         (el) => el.name == item.entityName
     );
+    let { currentRoute } = router;
     if (item.type == 30 || item.type == 20) {
         if (filterEntity.length < 1) {
             $ElMessage.error("该实体已删除");
@@ -287,12 +288,16 @@ const msgClick = (item, inx) => {
             detailRefs.value.openDialog(item.relatedRecord.id);
         }
     } else if (item.type == 10) {
-        approveDialogIsShow.value = true;
-        approvalTaskId.value = item.relatedRecord.id;
-        entityId.value = item.relatedRecord.id;
-        approvalName.value = item.relatedRecord.name;
+        if (currentRoute.value.name != "CenterHandle") {
+            router.push("/web/center-handle");
+        }
+        msg.value = false;
+        // approveDialogIsShow.value = true;
+        // approvalTaskId.value = item.relatedRecord.id;
+        // entityId.value = item.relatedRecord.id;
+        // approvalName.value = item.relatedRecord.name;
     } else {
-        let { currentRoute } = router;
+        
         if (currentRoute.value.name != "CenterCc") {
             router.push("/web/center-cc");
         }

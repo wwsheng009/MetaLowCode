@@ -73,6 +73,7 @@ const { viewTags } = storeToRefs(viewTagsStore);
 const { pushViewTags,removeViewTags } = viewTagsStore;
 const { pushKeepLive,removeKeepLive,setRouteShow } = keepAliveStore;
 const { removeIframeList,refreshIframe } = iframeStore;
+
 export default {
     name: "tags",
     data() {
@@ -228,7 +229,6 @@ export default {
                     query: nowTag.query,
                 });
             }
-
             refreshIframe(nowTag);
             setTimeout(() => {
                 removeKeepLive(nowTag.name);
@@ -238,6 +238,7 @@ export default {
                     setRouteShow(true);
                 });
             }, 0);
+
         },
         //TAB 关闭
         closeTabs(notPushLatestView = false) {
@@ -246,6 +247,7 @@ export default {
                 this.closeSelectedTag(nowTag, !notPushLatestView);
                 this.contextMenuVisible = false;
             }
+            // console.log()
         },
         //TAB 关闭其他
         closeOtherTabs() {
