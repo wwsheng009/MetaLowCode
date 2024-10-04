@@ -88,14 +88,14 @@
                                 <el-col :span="24" v-if="contentSlots.beforeNewRelatedBtn">
                                     <slot name="beforeNewRelatedBtn"></slot>
                                 </el-col>
-                                <el-col :span="24">
+                                <el-col :span="24" v-if="$TOOL.checkRole('r6008') && detailParamConf.showNewRelatedBtn">
                                     <NewRelated
                                         :entityName="entityName"
                                         :entityCode="entityCode"
                                         :addConf="addConf"
                                         @confirm="newRelatedConfirm"
                                         @add="onAdd"
-                                        :showNewRelatedBtn="$TOOL.checkRole('r6008') && detailParamConf.showNewRelatedBtn"
+                                        :checkNewRelatedFilter="checkNewRelatedFilter"
                                     />
                                 </el-col>
                                 <el-col :span="24" v-if="contentSlots.beforeEditBtn">
@@ -127,7 +127,7 @@
                                 <el-col :span="24">
                                     <More
                                         ref="MoreRefs"
-                                        :showMoreBtn="detailParamConf.showMoreBtn"
+                                        :listParamConf="detailParamConf"
                                         type="detail"
                                         :multipleSelection="multipleSelection"
                                         :entityCode="entityCode"
@@ -136,6 +136,7 @@
                                         :nameFieldName="nameFieldName"
                                         @editColumnConfirm="editColumnConfirm"
                                         :layoutConfig="myLayoutConfig"
+                                        @copySuccess="copySuccess"
                                     />
                                 </el-col>
                                 <el-col :span="24" v-if="contentSlots.afterMoreBtn">
@@ -164,17 +165,10 @@
 			</el-row>
 			<el-empty v-else description="暂无数据" />
 		</div>
-		<!-- <Edit
-			ref="editRefs"
-			@onConfirm="onConfirm"
-			:nameFieldName="nameFieldName"
-			:layoutConfig="myLayoutConfig"
-		/> -->
         <mlCustomEdit 	
             ref="editRefs"
             @saveFinishCallBack="onConfirm"
 			:nameFieldName="nameFieldName"
-			:layoutConfig="myLayoutConfig" 
         />
 	</el-drawer>
 </template>
@@ -269,28 +263,6 @@ let styleConf = ref({
 });
 
 
-watch(
-	() => props.layoutConfig,
-	() => {
-		loadMyLayoutConfig();
-	},
-	{
-		deep: true,
-	}
-);
-// 加载配置信息
-const loadMyLayoutConfig = () => {
-	myLayoutConfig.value = props.layoutConfig || {};
-
-	let { STYLE } = myLayoutConfig.value;
-	if (STYLE && STYLE.config) {
-		styleConf.value = JSON.parse(STYLE.config);
-		if (styleConf.value?.detailConf.autoFullScreen) {
-			isFullSceen.value = true;
-		}
-	}
-};
-
 const { queryEntityNameById, queryEntityCodeById } = useCommonStore();
 const emits = defineEmits(["onConfirm", "onEdit"]);
 const $API = inject("$API");
@@ -321,7 +293,10 @@ let cutTab = ref("detail");
 let optionData = ref({});
 let globalDsv = ref({});
 
-const openDialog = (id, localDsv) => {
+// 指定表单ID
+let formId = ref("");
+
+const openDialog = (id, localDsv, paramFormId) => {
 	detailId.value = id;
 	entityCode.value = queryEntityCodeById(id);
 	entityName.value = queryEntityNameById(id);
@@ -332,13 +307,12 @@ const openDialog = (id, localDsv) => {
     if(localDsv){
         globalDsv.value = Object.assign(globalDsv.value, localDsv);
     }
+    if(paramFormId) {
+        formId.value = paramFormId;
+    }
 	detailDialog.entityCode = entityCode.value;
 	detailDialog.entityName = entityName.value;
 	detailDialog.isShow = true;
-	// let row = {};
-	// row[idFieldName.value] = id;
-	// console.log(row,'row')
-	loadMyLayoutConfig();
 	// 加载数据
 	refresh();
 };
@@ -369,7 +343,10 @@ const newRelatedConfirm = async () => {
 	let res = await $API.layoutConfig.getLayoutList(entityName.value);
 	if (res) {
         myLayoutConfig.value = res.data;
-		addConf.value = res.data.ADD ? { ...res.data.ADD } : {};
+        myLayoutConfig.value.entityCode = entityCode.value;
+        myLayoutConfig.value.entityName = entityName.value;
+		// 新建配置项
+		formatNewRelated(res.data.ADD);
 		if (cutTab.value == "detail") {
 			initData();
 		} else {
@@ -386,12 +363,17 @@ const onSubmitApproval = () => {
 
 // 检测页签过滤
 let checkTabsFilter = ref({});
+// 新建项过滤
+let checkNewRelatedFilter= ref({});
+
 // 加载页签
 const getLayoutList = async () => {
 	loading.value = true;
 	let res = await $API.layoutConfig.getLayoutList(entityName.value);
 	if (res) {
         myLayoutConfig.value = res.data;
+        myLayoutConfig.value.entityCode = entityCode.value;
+        myLayoutConfig.value.entityName = entityName.value;
         let { STYLE } = res.data;
         if (STYLE && STYLE.config) {
             styleConf.value = JSON.parse(STYLE.config);
@@ -415,18 +397,36 @@ const getLayoutList = async () => {
            
         }
         detailDialog.tab = res.data.TAB ? { ...res.data.TAB } : {};
-        
-		addConf.value = res.data.ADD ? { ...res.data.ADD } : {};
+        // 新建配置项
+		formatNewRelated(res.data.ADD);
 		idFieldName.value = res.data.idFieldName;
 		nameFieldName.value = res.data.nameFieldName;
-		let row = {};
-		row[idFieldName.value] = detailId.value;
-		multipleSelection.value = [row];
+	
 		initData();
 	} else {
 		loading.value = false;
 	}
 };
+
+// 格式化新建相关-新加接口判断过滤条件
+const formatNewRelated = async (conf) => {
+    addConf.value = conf || {};
+    // 如果有新建相关
+    if(addConf.value.config) {
+        // 取所有新建项数
+        let addConfig = JSON.parse(addConf.value.config);
+        // 取所有新建项过滤参数
+        let filterList = addConfig.map(el => el.filter);
+        if(addConfig && addConfig.length > 0){
+            // 调用查询接口判断该页签是否显示
+            let newAddRes = await checkTables(filterList, detailId.value);
+            if(newAddRes){
+                checkNewRelatedFilter.value = newAddRes.data;
+            }
+        }
+    }
+}
+
 
 let haveLayoutJson = ref(false);
 let noeData = ref(false);
@@ -434,7 +434,7 @@ let noeData = ref(false);
 // 初始化数据
 const initData = async () => {
 	loading.value = true;
-	let res = await getFormLayout(entityName.value);
+	let res = await getFormLayout(entityName.value, formId.value);
 	haveLayoutJson.value = false;
 	noeData.value = false;
 	if (res) {
@@ -449,12 +449,11 @@ const initData = async () => {
                 let recordApprovalRes = await getRecordApprovalState(detailId.value);
                 if(recordApprovalRes){
                     recordApproval.value = recordApprovalRes.data;
+                    globalDsv.value.flowVariables = recordApprovalRes.data?.flowVariables;
                 }
 				let queryByIdRes = await queryById(detailId.value);
-				if (queryByIdRes?.flowVariables) {
-					globalDsv.value.flowVariables = queryByIdRes.flowVariables;
-				}
 				if (queryByIdRes && queryByIdRes.data) {
+		            multipleSelection.value = [queryByIdRes.data];
                     globalDsv.value.rowRecordData = queryByIdRes.data;
 					detailName.value = queryByIdRes.data[nameFieldName.value];
                     // console.log(res.data.layoutJson,'res.data.layoutJson')
@@ -486,13 +485,27 @@ const initData = async () => {
 	}
 };
 
+// 复制成功
+const copySuccess = ({type, recordId}) => {
+    emits("onConfirm");
+    if(type == 1){
+        let tempV = {
+            detailId: detailId.value
+        };
+        editEmits(tempV)
+    }else {
+        openDialog(recordId)
+    }
+}
+
 // 打开编辑
 let editRefs = ref();
-const onEditRow = (localDsv) => {
+const onEditRow = (localDsv, formId) => {
     let tempV = {
         detailId: detailId.value
     };
     !!localDsv && (tempV.localDsv = localDsv)
+    !!formId && (tempV.formId = formId)
     editEmits(tempV)
 };
 
@@ -503,6 +516,7 @@ const onAdd = (e) => {
 	tempV.fieldName = e.fieldName;
 	tempV.fieldNameVale = detailId.value;
 	tempV.fieldNameLabel = detailName.value;
+    tempV.sourceRecord = multipleSelection.value[0];
     editEmits(tempV)
 };
 
@@ -574,8 +588,8 @@ const getCurDetailInfo = () => {
 }
 
 // 编辑
-const toEdit = (localDsv) => {
-    onEditRow(localDsv);
+const toEdit = (localDsv, formId) => {
+    onEditRow(localDsv, formId);
 }
 
 const MoreRefs = ref();
@@ -619,6 +633,7 @@ const showApprovalRelated = () => {
     if(queryHistory){
         return true
     }
+
     return false
 
 }
@@ -690,5 +705,14 @@ defineExpose({
 	.el-form-item {
 		margin-bottom: 5px !important;
 	}
+}
+
+.detail-right {
+    .group-el-button {
+        .el-button {
+            margin-bottom: 5px;
+            min-width: 110px !important;
+        }
+    }
 }
 </style>

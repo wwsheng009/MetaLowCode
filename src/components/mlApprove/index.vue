@@ -1,5 +1,12 @@
 <template>
-    <el-drawer size="73%" class="ml-drawer" v-model="isShow" direction="rtl" :show-close="false">
+    <el-drawer 
+        size="73%" 
+        class="ml-drawer" 
+        v-model="isShow" 
+        direction="rtl" 
+        :show-close="false"
+        :append-to-body="true"
+    >
         <template #header>
             <div class="detail-header">
                 {{ approvalName }} 审批
@@ -75,18 +82,40 @@
                                                 v-if="approvalTask.transferApproval"
                                                 :icon="Avatar"
                                                 :command="1"
-                                            >转审</el-dropdown-item>
+                                            >
+                                                {{ customButtonText.specialReviewButtonText }}
+                                            </el-dropdown-item>
                                             <el-dropdown-item
                                                 v-if="approvalTask.addSignaturesApproval"
                                                 :icon="CirclePlusFilled"
                                                 :command="2"
-                                            >加签</el-dropdown-item>
+                                            >
+                                                {{ customButtonText.addSignatureButtonText }}
+                                            </el-dropdown-item>
                                         </el-dropdown-menu>
                                     </template>
                                 </el-dropdown>
-                                <el-button type="primary" @click="beforeConfirmApprove" style="min-width: 60px !important;">同意</el-button>
-                                <el-button type="danger" @click="beforeReject" style="min-width: 60px !important;">驳回</el-button>
-                                <el-button @click="canner" style="min-width: 60px !important;">取消</el-button>
+                                <el-button 
+                                    type="primary" 
+                                    @click="beforeConfirmApprove" 
+                                    style="min-width: 60px !important;"
+                                >
+                                    {{ customButtonText.confirmButtonText }}
+                                </el-button>
+                                <el-button 
+                                    type="danger" 
+                                    @click="beforeReject" 
+                                    style="min-width: 60px !important;"
+                                    v-if="!approvalTask.prohibitRejection"
+                                >
+                                    {{ customButtonText.rejectButtonText }}
+                                </el-button>
+                                <el-button 
+                                    @click="canner" 
+                                    style="min-width: 60px !important;"
+                                >
+                                    {{ customButtonText.cancelButtonText }}
+                                </el-button>
                             </div>
                         </el-form-item>
                     </el-form>
@@ -129,11 +158,11 @@
         </div>
     </mlDialog>
     <!-- 驳回弹框 -->
-    <mlDialog v-model="rejectDialogShow" title="选择驳回节点" width="400" appendToBody>
+    <mlDialog v-model="rejectDialogShow" :title="`选择${customButtonText.rejectButtonText}节点`" width="400" appendToBody>
         <div v-loading="rejectDialogLoading">
             <el-form label-width="100px">
-                <el-form-item label="选择驳回节点">
-                    <el-select v-model="rejectNode" placeholder="请选择驳回节点" class="w-100">
+                <el-form-item :label="`选择${customButtonText.rejectButtonText}节点`">
+                    <el-select v-model="rejectNode" :placeholder="`选择${customButtonText.rejectButtonText}节点`" class="w-100">
                         <el-option
                             v-for="item in rejectNodeList"
                             :key="item.targetKey"
@@ -145,7 +174,7 @@
                 <el-form-item>
                     <div class="w-100" style="text-align: right;">
                         <el-button @click="rejectDialogShow= false">取消</el-button>
-                        <el-button type="danger" @click="confirmReject">确认驳回</el-button>
+                        <el-button type="danger" @click="confirmReject">确认{{ customButtonText.rejectButtonText }}</el-button>
                     </div>
                 </el-form-item>
             </el-form>
@@ -158,6 +187,7 @@ import http from "@/utils/request";
 import { Avatar, CirclePlusFilled } from "@element-plus/icons-vue";
 import { watch, ref, onMounted, inject, reactive, nextTick } from "vue";
 import { queryById, saveRecord } from "@/api/crud";
+import { getRecordApprovalState } from '@/api/approval';
 import { getRejectNodeList } from "@/api/approval";
 import useCommonStore from "@/store/modules/common";
 import { storeToRefs } from "pinia";
@@ -242,6 +272,7 @@ let haveLayoutJson = ref(false);
 let optionData = ref({});
 let formData = reactive({});
 let globalDsv = ref({});
+globalDsv.value.uploadServer = import.meta.env.VITE_APP_BASE_API;
 // 初始化自定义表单
 const initFormLayout = async () => {
     loading.value = true;
@@ -256,9 +287,15 @@ const initFormLayout = async () => {
             optionData.value = res.data.optionData || {};
             // // 根据数据渲染出页面填入的值，填过
             nextTick(async () => {
+                // 获取审批信息
+                let recordApprovalRes = await getRecordApprovalState(props.entityId);
+                if(recordApprovalRes.data?.flowVariables){
+                    globalDsv.value.flowVariables = recordApprovalRes.data.flowVariables;
+                }
                 let formData = await queryById(props.entityId);
                 vFormRef.value.setFormJson(res.data.layoutJson);
                 if (formData) {
+                   
                     globalDsv.value.rowRecordData = formData.data;
                     nextTick(()=>{
                         vFormRef.value.setFormData(formData.data);
@@ -383,9 +420,8 @@ const beforeReject = () => {
 };
 
 // 同意审批
-async function confirmApprove(isBacked) {
-    let formData = await vFormRef.value.getFormData();
-    if (formData) {
+function confirmApprove(isBacked) {
+    vFormRef.value.getFormData().then(async (formData) => {
         loading.value = true;
         let saveRes = await saveRecord(
             allEntityName.value[approvalTask.value.entityCode],
@@ -414,8 +450,20 @@ async function confirmApprove(isBacked) {
             }
         }
         loading.value = false;
-    }
+
+    }).catch(err => {
+        $ElMessage.error("表单校验失败，请修改后重新提交");
+    })
 }
+
+const customButtonText = ref({
+    confirmButtonText: '同意',
+    rejectButtonText: '驳回',
+    cancelButtonText: '取消',
+    specialReviewButtonText: '转审',
+    addSignatureButtonText: '加签',
+})
+
 
 // 获取审核参数
 async function getApprovalTaskById() {
@@ -425,13 +473,22 @@ async function getApprovalTaskById() {
     });
     if (res) {
         approvalTask.value = res.data;
-
         // 如果是复杂工作流
         if (approvalTask.value.flowType == 2) {
             approvalTask.value = Object.assign(
                 approvalTask.value,
                 res.data.wfUseTask
             );
+        } 
+        let { customButtonJson } = approvalTask.value;
+        if(customButtonJson) {
+            let newCustomButtonJson = JSON.parse(customButtonJson);
+            for (const key in newCustomButtonJson) {
+                if (Object.prototype.hasOwnProperty.call(newCustomButtonJson, key)) {
+                    const element = newCustomButtonJson[key];
+                    customButtonText.value[key] = element.custom || element.default
+                }
+            }
         }
         initFormLayout();
     } else {
@@ -482,7 +539,8 @@ const confirmReject = () => {
  */
 
 const DealWithTypeLabel = {
-    1: "同意",
+    // 同意
+    1: "审批", 
     2: "驳回",
     // 退回
     3: "驳回",

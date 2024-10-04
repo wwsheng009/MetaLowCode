@@ -4,6 +4,7 @@
         v-model="isShow"
         width="650px"
         appendToBody
+        draggable
     >
         <div v-loading="loading">
             <div class="clearfix">
@@ -92,11 +93,11 @@
             v-if="editColumnDialogIsShow"
             appendToBody
             title="列设置"
-            width="450"
+            width="460"
             top="25vh"
         >
-            <div class="pr-40">
-                <el-form label-width="100px">
+            <div>
+                <el-form label-width="80px">
                     <el-form-item label="别名" class="mb-10">
                         <el-input v-model="editColumnDialogData.columnAliasName" />
                     </el-form-item>
@@ -112,6 +113,13 @@
                                 <ElIconBottom v-else />
                             </el-icon>
                         </span>
+                    </el-form-item>
+                    <el-form-item label="冻结列" class="mb-5">
+                        <el-radio-group v-model="editColumnDialogData.fixed">
+                            <el-radio :label="false">不冻结</el-radio>
+                            <el-radio label="left">向左冻结</el-radio>
+                            <el-radio label="right">向右冻结</el-radio>
+                        </el-radio-group>
                     </el-form-item>
                     <el-form-item label="数据统计" class="mb-3">
                         <el-checkbox v-model="editColumnDialogData.dataStatistics" />
@@ -148,9 +156,7 @@
                             controls-position="right"
                             :step="10"
                         />
-                        <span
-                            class="info-text ml-10"
-                        >{{ editColumnDialogData.columnWidth > 0 ? "宽度 " + editColumnDialogData.columnWidth : '默认' }}</span>
+                        <span class="ml-a-span ml-10" @click="applyColumns">应用到所有列</span>
                     </el-form-item>
                     <el-tabs v-model="editColumnDialogData.renderType">
                         <el-tab-pane label="默认渲染" name="defaultRender">
@@ -216,6 +222,7 @@ import { watch, ref, onMounted, inject, reactive } from "vue";
 import { queryEntityListableFields } from "@/api/crud";
 // 代码编辑器
 import mlCodeEditor from "@/components/mlCodeEditor/index.vue";
+import { ElMessage, ElMessageBox } from "element-plus";
 const $API = inject("$API");
 const props = defineProps({
     modelValue: null,
@@ -304,6 +311,8 @@ let editColumnDialogData = reactive({
     renderType: "defaultRender",
     // 自定义渲染JS
     columnRender:"",
+    // 冻结列  默认false  向左left 向右right
+    fixed: false,
 });
 let numType = ref(["Integer", "Decimal", "Percent", "Money"]);
 // 获取聚合方式
@@ -377,11 +386,38 @@ const editColumn = (column, inx) => {
     editColumnDialogData = Object.assign(editColumnDialogData, editObj);
 };
 
+// 列宽应用到所有列
+const applyColumns = () => {
+    ElMessageBox.confirm("是否确认将此列宽应用到所有列?","提示：",  {
+        confirmButtonText: "确认",
+        cancelButtonText: "取消",
+        type: "warning",
+    }).then( () => {
+        showColumn.value.forEach((el) => {
+            el.columnWidth = editColumnDialogData.columnWidth;
+        });
+        ElMessage.success("应用成功!")
+    })
+    .catch(() => {});
+}
+
 // 是否显示列标记 * 号
 const isShowItemTag = (column) => {
-    let { columnAliasName, columnSort, columnWidth, dataStatistics, renderType, columnRender} = column;
+    let { 
+        columnAliasName, 
+        columnSort, 
+        columnWidth, 
+        dataStatistics, 
+        renderType, 
+        columnRender, 
+        fixed
+    } = column;
     if (columnAliasName || columnSort || columnWidth > 0 || dataStatistics || (renderType == 'customizeRender' && !!columnRender)) {
         return true;
+    }
+    // 设置了冻结列
+    if(fixed)  {
+        return true; 
     }
     return false;
 };

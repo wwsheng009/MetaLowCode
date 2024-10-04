@@ -5,6 +5,7 @@ import {registerFieldWidgets} from "@/views/system/form-design/extension/field-w
 import {
     checkTagSchema,
     referenceSchema,
+    referenceListSchema,
     locationSchema,
     // 列表子表单
     listSubFormSchema
@@ -22,6 +23,8 @@ import referenceUseCurrentUserEditor from '@/views/system/form-design/extension/
 import referenceFillBackConfigEditor from '@/views/system/form-design/extension/property-editor/reference-fillBackConfig-editor.vue';
 import referenceFillBackEnabledEditor from '@/views/system/form-design/extension/property-editor/reference-fillBackEnabled-editor.vue';
 import referenceFilterConditionsEditor from '@/views/system/form-design/extension/property-editor/reference-filterConditions-editor.vue';
+import referenceTreeDataSelectEditor from '@/views/system/form-design/extension/property-editor/reference-treeDataSelect-editor.vue';
+
 import listSubFormNameEditor from "@/views/system/form-design/extension/property-editor/container-list-sub-form/list-sub-form-name-editor.vue"
 
 /**
@@ -40,6 +43,11 @@ import listSubFormShowAdvancedQueryEditor from "@/views/system/form-design/exten
 import listSubFormShowHeaderEditor from "@/views/system/form-design/extension/property-editor/container-list-sub-form/showListHeader-editor.vue";
 import listSubFormShowQuickQueryEditor from "@/views/system/form-design/extension/property-editor/container-list-sub-form/showQuickQuery-editor.vue";
 import listSubFormShowMoreBtnEditor from "@/views/system/form-design/extension/property-editor/container-list-sub-form/showMoreBtn-editor.vue";
+import listSubFormShowAddBtnEditor from "@/views/system/form-design/extension/property-editor/container-list-sub-form/showAddBtn-editor.vue";
+import listSubFormShowDelBtnEditor from "@/views/system/form-design/extension/property-editor/container-list-sub-form/showDelBtn-editor.vue";
+import listSubFormShowBatchUpdateSetEditor from "@/views/system/form-design/extension/property-editor/container-list-sub-form/showBatchUpdateSet-editor.vue";
+import listSubFormShowBatchUpdateBtnEditor from "@/views/system/form-design/extension/property-editor/container-list-sub-form/showBatchUpdateBtn-editor.vue";
+import listSubFormShowOperateColumnEditor from "@/views/system/form-design/extension/property-editor/container-list-sub-form/showOperateColumn-editor.vue";
 import listSubFormShowPaginationEditor from "@/views/system/form-design/extension/property-editor/container-list-sub-form/showPagination-editor.vue";
 import listSubFormPaginationSizeEditor from "@/views/system/form-design/extension/property-editor/container-list-sub-form/paginationSize-editor.vue";
 import listSubFormListHeightEditor from "@/views/system/form-design/extension/property-editor/container-list-sub-form/listSubFormHeight-editor.vue";
@@ -51,7 +59,8 @@ const {
     addCustomWidgetSchema,
     addZHExtensionLang,
 	addENExtensionLang,
-    PERegister
+    PERegister,
+	PEFactory
 } = VisualDesign.VFormSDK
 
 export const loadExtensionWidgets = (app) => {
@@ -72,6 +81,11 @@ export const loadExtensionWidgets = (app) => {
     PERegister.registerCPEditor(app, 'showAdvancedQuery', 'listSubForm-showAdvancedQuery-editor', listSubFormShowAdvancedQueryEditor)
     PERegister.registerCPEditor(app, 'showQuickQuery', 'listSubForm-showQuickQuery-editor', listSubFormShowQuickQueryEditor)
     PERegister.registerCPEditor(app, 'showMoreBtn', 'listSubForm-showMoreBtn-editor', listSubFormShowMoreBtnEditor)
+    PERegister.registerCPEditor(app, 'showAddBtn', 'listSubForm-showAddBtn-editor', listSubFormShowAddBtnEditor)
+    PERegister.registerCPEditor(app, 'showDelBtn', 'listSubForm-showDelBtn-editor', listSubFormShowDelBtnEditor)
+    PERegister.registerCPEditor(app, 'showBatchUpdateSet', 'listSubForm-showBatchUpdateSet-editor', listSubFormShowBatchUpdateSetEditor)
+    PERegister.registerCPEditor(app, 'showBatchUpdateBtn', 'listSubForm-showBatchUpdateBtn-editor', listSubFormShowBatchUpdateBtnEditor)
+    PERegister.registerCPEditor(app, 'showOperateColumn', 'listSubForm-showOperateColumn-editor', listSubFormShowOperateColumnEditor)
     PERegister.registerCPEditor(app, 'showPagination', 'listSubForm-showPagination-editor', listSubFormShowPaginationEditor)
     PERegister.registerCPEditor(app, 'paginationSize', 'listSubForm-paginationSize-editor', listSubFormPaginationSizeEditor)
     /**
@@ -83,8 +97,13 @@ export const loadExtensionWidgets = (app) => {
 	PERegister.registerCPEditor(app, 'fillBackEnabled', 'reference-fillBackEnabled-editor', referenceFillBackEnabledEditor)
 	PERegister.registerCPEditor(app, 'fillBackConfig', 'reference-fillBackConfig-editor', referenceFillBackConfigEditor)
 	PERegister.registerCPEditor(app, 'filterConditions', 'reference-filterConditions-editor', referenceFilterConditionsEditor)
+	PERegister.registerCPEditor(app, 'useTreeDataSelect', 'reference-treeDataSelect-editor', referenceTreeDataSelectEditor)
 	PERegister.registerEPEditor(app, 'onRecordSelected', 'onRecordSelected-editor', onRecordSelectedEditor)
-    // 容器组件添加到设计器
+
+	PERegister.registerCPEditor(app, 'positionSelectable', 'location-positionSelectable-editor',
+		PEFactory.createBooleanEditor('positionSelectable', 'extension.setting.positionSelectable'))
+
+	// 注册容器组件属性编辑器
 	PERegister.registerCPEditor(app, 'listSubFormWidget', 'listSubForm-widget', listSubFormWidget)
 	PERegister.registerCPEditor(app, 'listSubFormItem', 'listSubForm-item', listSubFormItem)
 
@@ -98,11 +117,10 @@ export const loadExtensionWidgets = (app) => {
 	//添加到设计器组件库
 	addBasicFieldSchema(checkTagSchema)
 	addAdvancedFieldSchema(referenceSchema)
+	addAdvancedFieldSchema(referenceListSchema)
 	addAdvancedFieldSchema(locationSchema)
     // 添加到容器组件库
-    // addCustomWidgetSchema(listSubFormSchema)
     addContainerWidgetSchema(listSubFormSchema)
-    // registerCWGenerator('list-sub-form', cardTemplateGenerator)
 
     //PERegister.registerCPEditor(app, 'newTest', 'newTest-editor', newTestEditor)
 }

@@ -93,6 +93,11 @@ export default [
                 key: "pageFooter",
                 type: "input",
             },
+            {
+                label: "手机号登录",
+                key: "mobilePhoneLogin",
+                type: "switch",
+            },
         ],
     },
     {
@@ -114,7 +119,7 @@ export default [
             {
                 label: "APPKEY",
                 key: "smsappKey",
-                type: "input",
+                type: "passwordInput",
                 required: true,
                 isError: false,
             },
@@ -140,7 +145,7 @@ export default [
             {
                 label: "APPKEY",
                 key: "appKey",
-                type: "input",
+                type: "passwordInput",
                 required: true,
                 isError: false,
             },
@@ -171,14 +176,14 @@ export default [
             {
                 label: "ACCESSKEY",
                 key: "accessKey",
-                type: "input",
+                type: "passwordInput",
                 required: true,
                 isError: false,
             },
             {
                 label: "SECRETKEY",
                 key: "secretKey",
-                type: "input",
+                type: "passwordInput",
                 required: true,
                 isError: false,
             },
@@ -218,14 +223,14 @@ export default [
             {
                 label: "APPKEY",
                 key: "dingTalkAppKey",
-                type: "input",
+                type: "passwordInput",
                 required: true,
                 isError: false,
             },
             {
                 label: "APPSECRET",
                 key: "dingTalkAppSecret",
-                type: "input",
+                type: "passwordInput",
                 required: true,
                 isError: false,
             },
@@ -281,7 +286,7 @@ export default [
             {
                 label: "企业微信应用密钥",
                 key: "wxWorkCorpSecret",
-                type: "input",
+                type: "passwordInput",
                 required: true,
                 isError: false,
             },
@@ -308,6 +313,31 @@ export default [
                 label: "自动同步企业微信组织架构",
                 key: "nodeDep2",
                 type: "autoSync2",
+            },
+        ],
+    },
+    {
+        label: "微信集成",
+        code: "wxIntegration",
+        confs: [
+            {
+                label: "启用小程序登录",
+                key: "wxMiniAppOpen",
+                type: "switch",
+            },
+            {
+                label: "AppId(小程序ID)",
+                key: "wxMiniAppappId",
+                type: "input",
+                required: true,
+                isError: false,
+            },
+            {
+                label: "AppSecret(小程序密钥)",
+                key: "wxMiniAppappSecret",
+                type: "passwordInput",
+                required: true,
+                isError: false,
             },
         ],
     },

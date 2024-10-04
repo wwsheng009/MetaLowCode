@@ -72,7 +72,7 @@
                     </el-button>
                     <el-button
                         icon="Edit"
-                        v-if="batchUpdateConf.length > 0"
+                        v-if="batchUpdateConf.length > 0 && listParamConf.showBatchUpdateBtn"
                         :disabled="multipleSelection.length < 1"
                         @click="openBatchUpdateDialog"
                     >
@@ -89,7 +89,7 @@
                     </el-button>
                     <slot name="beforeMoreBtn"></slot>
                     <More
-                        :showMoreBtn="listParamConf.showMoreBtn"
+                        :listParamConf="listParamConf"
                         ref="MoreRefs"
                         :layoutConfig="layoutConfig"
                         :defaultColumnShow="defaultColumnShow"
@@ -106,6 +106,7 @@
                         :isReferenceComp="isReferenceComp"
                         :isMainDetailField="!!mainDetailField"
                         :modelName="modelName"
+                        @copySuccess="copySuccess"
                     />
                     <slot name="afterMoreBtn"></slot>
                 </div>
@@ -190,10 +191,12 @@
                     :show-summary="statisticsList.length > 0"
                     :summary-method="getSummaries"
                     :row-style="setRowStyle"
+                    class="table-box-el-table"
                 >
                     <el-table-column
                         :width="statisticsList.length > 0 ? 60 : 50"
                         :align="'center'"
+                        :fixed="checkedColumnFixed"
                     >
                         <template #header>
                             <el-checkbox 
@@ -216,10 +219,11 @@
                         v-for="(column,columnInx) of tableColumn"
                         :key="columnInx"
                         :prop="column.fieldName"
-                        :label="column.columnAliasName ?column.columnAliasName : column.fieldLabel"
+                        :label="column.columnAliasName ? column.columnAliasName : column.fieldLabel"
                         :width="setColumnWidth(column)"
                         sortable
                         show-overflow-tooltip
+                        :fixed="column.fixed"
                     >
                         <template #default="scope">
                             <FormatRow
@@ -230,9 +234,9 @@
                             />
                         </template>
                     </el-table-column>
-                    <slot name="actionColumn" v-if="showActionColumnSlot"></slot>
+                    <slot name="actionColumn" v-if="showActionColumnSlot && listParamConf.showOperateColumn"></slot>
                     <el-table-column 
-                        v-else
+                        v-if="!showActionColumnSlot && listParamConf.showOperateColumn"
                         label="操作" 
                         fixed="right" 
                         :align="'center'" 
@@ -353,7 +357,6 @@ import ListBatchUpdate from "./components/ListBatchUpdate.vue";
 // 列表常用分组查询
 import ListcommonGroupFilter from "./components/ListcommonGroupFilter.vue";
 
-
 const { allEntityCode } = storeToRefs(useCommonStore());
 const { setRouterParams } = routerParamsStore();
 const { routerParams } = storeToRefs(routerParamsStore());
@@ -425,6 +428,8 @@ let entityName = ref("");
 
 // 表格列
 let tableColumn = ref([]);
+// 勾选列冻结
+let checkedColumnFixed = ref(false);
 // 所有字段
 let allFields = ref([]);
 // 表格数据
@@ -476,9 +481,6 @@ let quickQueryConf = reactive({
 let idFieldName = ref("");
 // 标蓝字段
 let nameFieldName = ref("");
-// 新建配置项
-let addConf = reactive({});
-
 let TableRef = ref("");
 
 let isMounted = ref(false);
@@ -505,8 +507,12 @@ const listParamConf = ref({
     showOpenBtn: true,
     showEditBtn: true,
     showAddBtn: true,
+    showDelBtn: true,
     showMoreBtn: true,
+    showOperateColumn: true,
     showPagination: true,
+    showBatchUpdateSet: true,
+    showBatchUpdateBtn: true,
 })
 
 
@@ -637,6 +643,14 @@ let batchUpdateConf = ref([]);
 let ListBatchUpdateRef = ref("");
 // 打开批量编辑弹框
 const openBatchUpdateDialog = () => {
+    if(batchUpdateConf.value.length < 1) {
+        ElMessage.error("该实体没有设置可编辑字段");
+        return
+    }
+    if(multipleSelection.value.length < 1) {
+        ElMessage.error("请选择要批量编辑的数据");
+        return
+    }
     ListBatchUpdateRef.value.openDialog(
         batchUpdateConf.value,
         multipleSelection.value,
@@ -675,7 +689,6 @@ const getLayoutList = async () => {
             defaultFilter.value = JSON.parse(defaultFilterSetting.value.config);
         }
         quickQueryPlaceholder.value = res.data.quickFilterLabel;
-        addConf = res.data.ADD ? { ...res.data.ADD } : {};
         let { ALL, SELF } = res.data.LIST;
         titleWidthForAll = res.data.titleWidthForAll
             ? { ...JSON.parse(res.data.titleWidthForAll) }
@@ -694,7 +707,9 @@ const getLayoutList = async () => {
             STYLE: res.data.STYLE,
             COM_TREE_GROUP: res.data.COM_TREE_GROUP,
             idFieldName: idFieldName.value,
-            nameFieldName: nameFieldName.value
+            nameFieldName: nameFieldName.value,
+            entityName: entityName.value,
+            entityCode: entityCode.value,
         };
         // 自定义行样式
         if(res.data.STYLE && res.data.STYLE.config){
@@ -724,6 +739,8 @@ const getLayoutList = async () => {
         }
         // 如果存在列
         if (tableColumn.value.length > 0) {
+            let hasFixed = tableColumn.value.filter(el => el.fixed == 'left');
+            checkedColumnFixed.value = hasFixed.length > 0 ? true : false;
             refreshData();
         }
         // 如果存在快速搜索字段
@@ -853,7 +870,7 @@ let editRefs = ref();
 let myFormEntityId = ref("");
 
 // 新建
-const onAdd = (localDsv) => {
+const onAdd = (localDsv, formId) => {
     let { isReferenceComp, detailEntityFlag, refEntityBindingField } = props;
     if(isReferenceComp){
         if(!detailEntityFlag && !myFormEntityId.value){
@@ -871,6 +888,8 @@ const onAdd = (localDsv) => {
             tempV.idFieldName = idFieldName.value;
             tempV.formEntityId = myFormEntityId.value;
             tempV.mainDetailField = mainDetailField.value;
+            !!localDsv && (tempV.localDsv = localDsv)
+            !!formId && (tempV.formId = formId)
             editRefs.value.openDialog(tempV);
         });
         return
@@ -881,6 +900,7 @@ const onAdd = (localDsv) => {
     tempV.idFieldName = idFieldName.value;
     tempV.formEntityId = "";
     !!localDsv && (tempV.localDsv = localDsv)
+    !!formId && (tempV.formId = formId)
     editRefs.value.openDialog(tempV);
 };
 
@@ -895,7 +915,7 @@ const getEditBtnTitle = (row) => {
     return str;
 };
 // 编辑
-const onEditRow = (row, localDsv) => {
+const onEditRow = (row, localDsv, formId) => {
     if (!row) {
         $ElMessage.warning("请先选择数据");
         return;
@@ -910,6 +930,7 @@ const onEditRow = (row, localDsv) => {
     tempV.formEntityId = myFormEntityId.value;
     tempV.mainDetailField = mainDetailField.value;
     !!localDsv && (tempV.localDsv = localDsv)
+    !!formId && (tempV.formId = formId)
     editRefs.value.openDialog(tempV);
 };
 
@@ -937,7 +958,7 @@ const rowDblclick = (row) => {
 };
 
 // 打开详情
-const openDetailDialog = (row, localDsv) => {
+const openDetailDialog = (row, localDsv, formId) => {
     if (!row) {
         $ElMessage.warning("请先选择数据");
         return;
@@ -950,7 +971,7 @@ const openDetailDialog = (row, localDsv) => {
         editRefs.value.openDialog(tempV);
         return
     }
-    detailRefs.value.openDialog(row[idFieldName.value], localDsv);
+    detailRefs.value.openDialog(row[idFieldName.value], localDsv, formId);
 };
 
 // 列排序
@@ -1205,13 +1226,7 @@ watchEffect(() => {
     page.pageSizes = props.paginationConf?.pageSizes || [20, 40, 80, 100, 200, 300, 400, 500];
     myFormEntityId.value = props.formEntityId;
     myModelName.value = props.modelName;
-    if(mainDetailField.value){
-        listParamConf.value.showAddBtn = false;
-    }
     if(props.isReferenceComp){
-        if(props.referenceCompStatus == 'new' || props.referenceCompStatus == 'edit'){
-            listParamConf.value.showAddBtn = true;
-        }
         if(props.referenceCompStatus == 'read'){
             listParamConf.value.showAddBtn = false;
             listParamConf.value.showEditBtn = false;
@@ -1221,7 +1236,6 @@ watchEffect(() => {
             listParamConf.value.showOpenBtn = false;
             listParamConf.value.showAddBtn = false;
             listParamConf.value.showEditBtn = false;
-            // listParamConf.value.showMoreBtn = false;
         }
     }
 })
@@ -1237,6 +1251,25 @@ const loadRouterParams = (cbApi) => {
         if(cbApi){
             getTableList();
         }
+    }
+}
+
+// 复制成功
+const copySuccess = ({type, recordId}) => {
+    getTableList();
+    if(type == 1){
+        let { detailEntityFlag, refEntityBindingField } = props;
+        let tempV = {
+            detailEntityFlag,
+            refEntityBindingField,
+        };
+        tempV.detailId = recordId;
+        tempV.idFieldName = idFieldName.value;
+        tempV.formEntityId = myFormEntityId.value;
+        tempV.mainDetailField = mainDetailField.value;
+        editRefs.value.openDialog(tempV);
+    }else {
+        detailRefs.value.openDialog(recordId);
     }
 }
 
@@ -1262,6 +1295,7 @@ const onQuickQuery = () => {
         ElMessage.warning("请配置快速查询字段!");
         return
     }
+    quickQuery.value = quickQuery.value.replace(/\s/g, '');
     getTableList();
 }
 
@@ -1287,7 +1321,7 @@ const getSelectedRow = () => {
 }
 
 // 编辑数据
-const toEdit = (localDsv) => {
+const toEdit = (localDsv, formId) => {
     if(multipleSelection.value.length < 1){
         ElMessage.warning("请先选择数据")
         return
@@ -1301,11 +1335,11 @@ const toEdit = (localDsv) => {
         ElMessage.warning("当前数据这个在审批中或者已审批结束，不可编辑。")
         return
     }
-    onEditRow(row, localDsv);
+    onEditRow(row, localDsv, formId);
 }
 
 // 查看详情
-const toDetail = (localDsv) => {
+const toDetail = (localDsv, formId) => {
     if(multipleSelection.value.length < 1){
         ElMessage.warning("请先选择数据")
         return
@@ -1315,12 +1349,12 @@ const toDetail = (localDsv) => {
         return
     }
     let row = multipleSelection.value[0];
-    openDetailDialog(row, localDsv)
+    openDetailDialog(row, localDsv, formId)
 }
 
 // 新建数据
-const toAdd = (localDsv) => {
-    onAdd(localDsv);
+const toAdd = (localDsv, formId) => {
+    onAdd(localDsv, formId);
 }
 
 // 更多操作
@@ -1350,13 +1384,18 @@ const listMoreSetting = (type) => {
 }
 
 // 编辑行
-const editRow = (row, localDsv) => {
-    onEditRow(row, localDsv);
+const editRow = (row, localDsv, formId) => {
+    onEditRow(row, localDsv, formId);
 }
 
 // 查看行
-const viewRow = (row, localDsv) => {
-    openDetailDialog(row, localDsv)
+const viewRow = (row, localDsv, formId) => {
+    openDetailDialog(row, localDsv, formId)
+}
+
+// 获取列表数据
+const getTableDataList = () => {
+    return sliceTable.value;
 }
 
 
@@ -1374,6 +1413,8 @@ defineExpose({
     saveSubFormListCb,
     editRow,
     viewRow,
+    getTableDataList,
+    openBatchUpdateDialog,
 })
 
 </script>
@@ -1452,11 +1493,11 @@ div {
                 // overflow:auto;
             }
 
-            :deep(.el-table__row){
-                td {
-                    background: initial !important;
-                }
-            }
+            // :deep(.el-table__row){
+            //     td {
+            //         background: initial;
+            //     }
+            // }
         }
     }
 }

@@ -13,6 +13,10 @@ export const listSubFormSchema = {
         // 是否从实体
         detailEntityFlag: true,
         refEntityBindingField: '',
+        // 是否显示新增
+        showAddBtn: true,
+        // 是否显示删除
+        showDelBtn: true,
         // 是否显示头部
         showListHeader: true,
         // 是否显示高级查询
@@ -21,8 +25,14 @@ export const listSubFormSchema = {
         showQuickQuery: true,
         // 是否显示更多按钮
         showMoreBtn: true,
+        // 是否显示操作列
+        showOperateColumn: true,
         // 是否显示分页
         showPagination: true,
+        // 是否显示批量编辑设置
+        showBatchUpdateSet: true,
+        // 是否显示批量编辑按钮
+        showBatchUpdateBtn: true,
         // 分页每页显示多少条
         paginationSize: 20,
         // 列表高度 - 默认294 空状态的高度
@@ -114,6 +124,61 @@ export const referenceSchema = {
         subFormFillBackConfig: [],
         // 过滤条件
         filterConditions: {},
+        // 启用树模式
+        useTreeDataSelect: false,
+        // 树引用字段
+        treeCascadeFieldName: "",
+        // 树数据源(实体名称)
+        treeDataEntityName: "",
+		//-------------------
+		customClass: '',  //自定义css类名
+		labelIconClass: null,
+		labelIconPosition: 'rear',
+		labelTooltip: null,
+		prefixIcon: '',
+		suffixIcon: '',
+		buttonIcon: 'Search',
+
+		//-------------------
+		onCreated: '',
+		onMounted: '',
+		onChange: '',
+		onValidate: '',
+		onRecordSelected: '',  //记录选择回填事件
+	}
+}
+
+
+export const referenceListSchema = {
+	type: 'reference-list',  //引用字段组件
+	alias: '',  //组件别名，可以自定义
+	icon: 'reference-field',
+	formItemFlag: true,
+	options: {
+		name: '',
+		keyNameEnabled: false,
+		keyName: '',  //数据键值名称
+		label: '',
+		labelAlign: '',
+		placeholder: '',
+		columnWidth: '200px',
+		size: '',
+		labelWidth: null,
+		labelHidden: false,
+		labelWrap: false,  //标签超长换行
+		disabled: false,
+		hidden: false,
+		required: false,
+		requiredHint: '',
+		validation: '',
+		validationHint: '',
+		searchDialogWidth: '520px',  //搜索弹窗宽度
+        // 启用树模式
+        useTreeDataSelect: false,
+        // 树引用字段
+        treeCascadeFieldName: "",
+        // 树数据源(实体名称)
+        treeDataEntityName: "",
 		//-------------------
 		customClass: '',  //自定义css类名
 		labelIconClass: null,
@@ -156,6 +221,7 @@ export const locationSchema = {
 		validation: '',
 		validationHint: '',
 		searchDialogWidth: '50%',  //定位地图弹窗宽度
+		positionSelectable: false,  //是否允许用户手动选择位置
 		//-------------------
 		customClass: '',  //自定义css类名
 		labelIconClass: null,

@@ -8,6 +8,7 @@
         :showFullSceen="styleConf?.actionConf.showFullScreen"
         :autoFullScreen="styleConf?.actionConf.autoFullScreen"
         append-to-body
+        bodyNoPadding
     >
         <div class="main fullsceen-man" v-loading="loading">
             <div class="info-box" v-if="row.detailId && row.approvalStatus.value == 3">记录已完成审批，禁止编辑</div>
@@ -163,6 +164,9 @@ let isShow = ref(false);
 let isReferenceComp = ref(false);
 // 引用组件的表单数据
 let referenceCompFormData = ref({});
+// 指定表单ID
+let formId = ref("");
+
 const openDialog = async (v) => {
     row.dialogTitle = "Loading...";
     row.detailId = v.detailId;
@@ -178,7 +182,12 @@ const openDialog = async (v) => {
     row.idFieldName = v.idFieldName;
     row.detailEntityFlag = v.detailEntityFlag;
     row.refEntityBindingField = v.refEntityBindingField;
+    formId.value = v.formId;
+    
     globalDsv.value = Object.assign(globalDsv.value, v.localDsv);
+    if(v.sourceRecord) {
+        globalDsv.value.sourceRecord = v.sourceRecord;
+    }
     isReferenceComp.value = v.isReferenceComp;
     // 如果是引用组件调用，有引用组件表单数据
     if(isReferenceComp.value){
@@ -216,7 +225,7 @@ const initFormLayout = async () => {
     globalDsv.value.formEntity = row.entityName;
     globalDsv.value.formEntityIdFieldName = row.idFieldName;
     globalDsv.value.setRowRecordId = setRowRecordId;
-    let res = await getFormLayout(row.entityName);
+    let res = await getFormLayout(row.entityName, formId.value);
     if (res) {
         if (res.data?.layoutJson) {
             haveLayoutJson.value = true;
@@ -492,6 +501,8 @@ defineExpose({
     max-height: 500px;
     overflow-x: hidden;
     overflow-y: auto;
+    box-sizing: border-box;
+    padding: 20px;
     .info-box {
         height: 26px;
         line-height: 26px;

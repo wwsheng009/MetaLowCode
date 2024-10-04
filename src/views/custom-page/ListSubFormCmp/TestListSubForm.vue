@@ -2,7 +2,7 @@
 	<EntityList
 		isReferenceComp
 		:referenceEntity="myReferenceEntity"
-		:listConf="listParamConf"
+		:listConf="useListConf"
 		:paginationConf="listPaginationConf"
         :formEntityId="formEntityId"
         :referenceCompStatus="formStatus"
@@ -21,6 +21,7 @@
 
 <script>
 import EntityList from "@/views/customize-menu/list.vue";
+import { deepClone } from '@/utils/util';
 export default {
 	name: "test-list-sub-form",
 	components: {
@@ -59,7 +60,7 @@ export default {
 	},
 	watch: {
 		listConf(newV) {
-			this.listParamConf = Object.assign(this.listParamConf, newV);
+            this.useListConf = Object.assign({}, newV, this.listParamConf)
 		},
 		paginationSize(newV) {
 			this.listPaginationConf.size = newV ? newV * 1 : 20;
@@ -75,7 +76,12 @@ export default {
 		return {
 			myReferenceEntity: "",
 			entityCode: "",
+            // 绑定的列表配置文件
+            useListConf: {},
+            // 实际控制列表配置文件，
+            // 列表配置以 listParamConf 为主。比如这里按钮设置true，无论你表单设置什么都以这里为主
 			listParamConf: {
+                // showAddBtn: true,
 			},
 			listPaginationConf: {
 				size: 20,
@@ -85,7 +91,7 @@ export default {
 		};
 	},
 	mounted() {
-		this.listParamConf = Object.assign(this.listParamConf, this.listConf);
+        this.useListConf = Object.assign({}, this.listConf, this.listParamConf)
 		this.listPaginationConf.size = this.paginationSize
 			? this.paginationSize * 1
 			: 20;
@@ -94,18 +100,13 @@ export default {
 	},
 	methods: {
 		referenceCompAdd(cb) {
-			this.formRef
-				.getFormData()
-				.then((formData) => {
-                    let newFromData = formData;
-                    newFromData.referenceCompName = this.formRef.referenceCompName;
-                    newFromData.referenceCompEntity = this.formRef.getGlobalDsv().formEntity;
-					cb(newFromData);
-				})
-				.catch((err) => {
-					console.log(err, "err");
-					this.$message.error("表单校验失败，请修改后重新提交");
-				});
+			let formData = this.formRef.getFormData(false);
+            if(formData) {
+                let newFormData = deepClone(formData);
+                newFormData.referenceCompName = this.formRef.referenceCompName;
+                newFormData.referenceCompEntity = this.formRef.getGlobalDsv().formEntity;
+                cb(newFormData);
+            }
 		},
         // 新建\编辑成功后回调
         saveFinishCallBack(data){
@@ -119,6 +120,9 @@ export default {
         getFormRef() {
             console.log(this.formRef);
         },
+        getTableDataList(){
+            return this.$refs.EntityListRefs.getTableDataList();
+        }
 
 	},
 };
